@@ -1,8 +1,8 @@
 # types.py
 # Author: Boo Mew Mew
 
-from numpy import float64
-
 """Data types used in nnmusic."""
+
+from numpy import float64
 
 Amplitude = float64

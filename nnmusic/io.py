@@ -1,11 +1,15 @@
 # io.py
 # Author: Boo Mew Mew
 
+"""Reads and writes audio files."""
+
 import soundfile
 
 from nnmusic.types import Amplitude
 
-"""Reads and writes audio files."""
+from os import listdir
+
+from sys import stderr
 
 class SampleRateError(Exception):
     """Exception indicating unexpected sample rate.
@@ -51,9 +55,12 @@ class ChannelError(Exception):
             self.expected_channels
         )
 
-DEFAULT_RATE = 44100
+DEFAULT_RATE     = 44100
+DEFAULT_CHANNELS = 2
 
-def read(file_name, expected_rate = DEFAULT_RATE, expected_channels = 2):
+def read(file_name,
+         expected_rate     = DEFAULT_RATE,
+         expected_channels = DEFAULT_CHANNELS):
     """Read an audio file and return the data as a tensor.
     
     Keyword arguments:
@@ -92,3 +99,51 @@ def write(file_name, data, sample_rate = DEFAULT_RATE):
         sample_rate -- Sample rate in Hz.
     """
     soundfile.write(file_name, data, sample_rate)
+
+def read_dir(dir_name,
+             expected_rate     = DEFAULT_RATE,
+             expected_channels = DEFAULT_CHANNELS):
+    """Read audio files from a directory.
+    
+    The list of files present in the directory is parsed at the beginning of the
+    generator's execution. If a file is removed before it is read, the file is
+    skipped, with a warning printed to stderr.
+    
+    If a file does not have the desired sample rate or number of channels, it is
+    likewise skipped with a warning sent to stderr.
+    
+    Keyword arguments:
+        dir_name          -- Directory to be read from.
+        expected_rate     -- Desired sample rate in Hz.
+        expected_channels -- Desired number of audio channels.
+    """
+    err_stream = stderr
+    
+    for s in listdir(dir_name):
+        file_name = "{}/{}".format(dir_name, s)
+
+        try:
+            yield read(file_name)
+        except SampleRateError as e:
+            print(
+                "File {} has sample rate {} Hz (wanted {} Hz). Skipping."
+                    .format(file_name, e.sample_rate, expected_rate),
+                file = err_stream
+            )
+        except ChannelError as e:
+            print(
+                "File {} has {} channels (wanted {}). Skipping.".format(
+                    file_name,
+                    e.n_channels,
+                    expected_channels
+                ),
+                file = err_stream
+            )
+        except RuntimeError:
+            print(
+                "File {} was removed from directory {}. Skipping.".format(
+                    s,
+                    dir_name
+                ),
+                file = err_stream
+            )
