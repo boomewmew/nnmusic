@@ -142,8 +142,7 @@ def read_dir(dir_name, batch_size, expected_rate=DEFAULT_RATE,
             except RuntimeError:
                 print(
                     "File {} was removed from directory {}. Skipping.".format(
-                        s,
-                        dir_name
+                        s, dir_name
                     ),
                     file = ERR_STREAM
                 )
