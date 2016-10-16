@@ -28,9 +28,7 @@ class SampleRateError(Exception):
     def __str__(self):
         """Error message."""
         return "File {} has sample rate {} Hz. Expected {} Hz.".format(
-            self.file_name, 
-            self.sample_rate,
-            self.expected_rate
+            self.file_name, self.sample_rate, self.expected_rate
         )
 
 class ChannelError(Exception):
@@ -50,17 +48,14 @@ class ChannelError(Exception):
     def __str__(self):
         """Error message."""
         return "File {} has {} channels. Expected {}.".format(
-            self.file_name,
-            self.n_channels,
-            self.expected_channels
+            self.file_name, self.n_channels, self.expected_channels
         )
 
 DEFAULT_RATE     = 44100
 DEFAULT_CHANNELS = 2
 
-def read(file_name,
-         expected_rate     = DEFAULT_RATE,
-         expected_channels = DEFAULT_CHANNELS):
+def read(file_name, expected_rate=DEFAULT_RATE,
+         expected_channels=DEFAULT_CHANNELS):
     """Read an audio file and return the data as a tensor.
     
     Keyword arguments:
@@ -71,14 +66,11 @@ def read(file_name,
                              channels differing from this value.
     
     Return value:
-        A 2D array of amplitudes. The first index runs over audio channels. The
-        second runs over time steps.
+        A 2D array of amplitudes. The first index runs over time steps. The
+        second runs over audio channels.
     """
-    data, sample_rate = soundfile.read(
-        file_name,
-        dtype     = Amplitude,
-        always_2d = True
-    )
+    data, sample_rate = soundfile.read(file_name, dtype=Amplitude,
+                                       always_2d=True)
     
     if sample_rate != expected_rate:
         raise SampleRateError(file_name, sample_rate, expected_rate)
@@ -87,63 +79,74 @@ def read(file_name,
     if n_channels != expected_channels:
         raise ChannelError(file_name, n_channels, expected_channels)
         
-    return data
+    return data.transpose()
 
-def write(file_name, data, sample_rate = DEFAULT_RATE):
+def write(file_name, data, sample_rate=DEFAULT_RATE):
     """Write an audio file.
     
     Keyword arguments:
         file_name   -- Name of output file.
-        data        -- A 2D array of amplitudes. The first index runs over audio
-                       channels. The second runs over time steps.
+        data        -- A 2D array of amplitudes. The first index runs over time
+                       steps. The second runs over audio channels.
         sample_rate -- Sample rate in Hz.
     """
-    soundfile.write(file_name, data, sample_rate)
+    soundfile.write(file_name, data.transpose(), sample_rate)
 
-def read_dir(dir_name,
-             expected_rate     = DEFAULT_RATE,
-             expected_channels = DEFAULT_CHANNELS):
+def read_dir(dir_name, batch_size, expected_rate=DEFAULT_RATE,
+             expected_channels=DEFAULT_CHANNELS):
     """Read audio files from a directory.
     
-    The list of files present in the directory is parsed at the beginning of the
-    generator's execution. If a file is removed before it is read, the file is
-    skipped, with a warning printed to stderr.
+    The list of files present in the directory is parsed at the beginning of
+    the generator's execution. If a file is removed before it is read, the file
+    is skipped, with a warning printed to stderr.
     
-    If a file does not have the desired sample rate or number of channels, it is
-    likewise skipped with a warning sent to stderr.
+    If a file does not have the desired sample rate or number of channels, it
+    is likewise skipped with a warning sent to stderr.
     
     Keyword arguments:
         dir_name          -- Directory to be read from.
+        batch_size        -- Number of files to return.
         expected_rate     -- Desired sample rate in Hz.
         expected_channels -- Desired number of audio channels.
-    """
-    err_stream = stderr
     
-    for s in listdir(dir_name):
-        file_name = "{}/{}".format(dir_name, s)
+    Return value:
+        A list containing batch_size 2D arrays of amplitudes. The first index
+        of each array runs over time steps, and the second runs over audio
+        channels.
+    """
+    ERR_STREAM = stderr
+    
+    file_list = listdir(dir_name)
 
-        try:
-            yield read(file_name)
-        except SampleRateError as e:
-            print(
-                "File {} has sample rate {} Hz (wanted {} Hz). Skipping."
-                    .format(file_name, e.sample_rate, expected_rate),
-                file = err_stream
-            )
-        except ChannelError as e:
-            print(
-                "File {} has {} channels (wanted {}). Skipping.".format(
-                    file_name,
-                    e.n_channels,
-                    expected_channels
-                ),
-                file = err_stream
-            )
-        except RuntimeError:
-            print(
-                "File {} was removed from directory {}. Skipping.".format(
-                    s,
-                    dir_name
-                ),
-                file = err_stream
-            )
+    for t in zip(*(iter(file_list),) * batch_size):
+        ret = [None] * batch_size
+    
+        for i, s in enumerate(t):
+            file_name = "{}/{}".format(dir_name, s)
+
+            try:
+                ret[i] = read(file_name)
+            except SampleRateError as e:
+                print(
+                    "File {} has sample rate {} Hz (wanted {} Hz). "
+                    "Skipping.".format(file_name, e.sample_rate,
+                                       expected_rate),
+                    file = ERR_STREAM
+                )
+            except ChannelError as e:
+                print(
+                    "File {} has {} channels (wanted {}). Skipping.".format(
+                        file_name, e.n_channels, expected_channels
+                    ),
+                    file = ERR_STREAM
+                )
+            except RuntimeError:
+                print(
+                    "File {} was removed from directory {}. Skipping.".format(
+                        s,
+                        dir_name
+                    ),
+                    file = ERR_STREAM
+                )
+        
+        yield ret
