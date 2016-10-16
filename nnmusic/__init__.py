@@ -7,7 +7,7 @@ import importlib as il
 
 import os
 
-global_dict = globals()
+_global_dict = globals()
 
 for s in os.listdir(__path__[0]):
     if s[-3:] != ".py" or s[:2] == "__":
@@ -21,4 +21,4 @@ for s in os.listdir(__path__[0]):
         attribute_list = [t for t in dir(module) if t == "" or t[0] != "_"]
     
     for t in attribute_list:
-        global_dict[t] = getattr(module, t)
+        _global_dict[t] = getattr(module, t)
