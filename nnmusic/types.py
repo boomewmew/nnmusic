@@ -1,8 +1,18 @@
 # types.py
 # Author: Boo Mew Mew
 
-"""Data types used in nnmusic."""
+"""Data types used in nnmusic.
 
-from numpy import float64
+Types:
+    amplitude        -- Floating-point number representing the amplitude of a
+                        sound wave.
+    tensor_amplitude -- Tensor element representing the amplitude of a sound
+                        wave.
+"""
 
-Amplitude = float64
+import numpy as np
+
+import tensorflow as tf
+
+amplitude        = np.float64
+tensor_amplitude = tf.float64
