@@ -18,7 +18,7 @@ for s in os.listdir(__path__[0]):
     try:
         attribute_list = module.__all__
     except AttributeError:
-        attribute_list = [t for t in dir(module) if t == "" or t[0] != "_"]
+        attribute_list = dir(module)
     
     for t in attribute_list:
         _global_dict[t] = getattr(module, t)
