@@ -3,15 +3,15 @@
 
 """Reads and writes audio files."""
 
-import itertools as it
+import itertools as _it
 
-import nnmusic as nnm
+import nnmusic.types as _types
 
-import os
+import os as _os
 
-import soundfile as sf
+import soundfile as _sf
 
-import sys
+import sys as _sys
 
 class SampleRateError(Exception):
     """Exception indicating unexpected sample rate.
@@ -71,7 +71,8 @@ def read(file_name, expected_rate=DEFAULT_RATE,
         A 2D array of amplitudes. The first index runs over time steps. The
         second runs over audio channels.
     """
-    data, sample_rate = sf.read(file_name, dtype=nnm.amplitude, always_2d=True)
+    data, sample_rate = _sf.read(file_name, dtype=_types.amplitude,
+                                always_2d=True)
     
     if sample_rate != expected_rate:
         raise SampleRateError(file_name, sample_rate, expected_rate)
@@ -91,7 +92,7 @@ def write(file_name, data, sample_rate=DEFAULT_RATE):
                        steps. The second runs over audio channels.
         sample_rate -- Sample rate in Hz.
     """
-    sf.write(file_name, data.transpose(), sample_rate)
+    _sf.write(file_name, data.transpose(), sample_rate)
 
 def read_dir(dir_name, batch_size, expected_rate=DEFAULT_RATE,
              expected_channels=DEFAULT_CHANNELS):
@@ -115,9 +116,9 @@ def read_dir(dir_name, batch_size, expected_rate=DEFAULT_RATE,
         of each array runs over time steps, and the second runs over audio
         channels.
     """
-    ERR_STREAM = sys.stderr
+    ERR_STREAM = _sys.stderr
 
-    for t in it.zip_longest(*(iter(os.listdir(dir_name)),) * batch_size):
+    for t in _it.zip_longest(*(iter(_os.listdir(dir_name)),) * batch_size):
         file_list = [s for s in t if s != None]
         ret       = [None] * len(file_list)
     

@@ -10,9 +10,9 @@ Types:
                         wave.
 """
 
-import numpy as np
+import numpy as _np
 
-import tensorflow as tf
+import tensorflow as _tf
 
-amplitude        = np.float64
-tensor_amplitude = tf.float64
+amplitude        = _np.float64
+tensor_amplitude = _tf.float64

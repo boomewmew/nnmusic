@@ -1,24 +1,24 @@
 # __init__.py
 # Author: Boo Mew Mew
 
-"""Initialize nnmusic package."""
+"""Trains LSTM recursive neural networks to write music."""
 
-import importlib as il
+import importlib as _il
 
-import os
+import os as _os
 
 _global_dict = globals()
 
-for s in os.listdir(__path__[0]):
-    if s[-3:] != ".py" or s[:2] == "__":
+for _s in _os.listdir(__path__[0]):
+    if _s[-3:] != ".py" or _s[:2] == "__":
         continue
-
-    module = il.import_module("nnmusic.{}".format(s[:-3]))
+        
+    _module = _il.import_module("nnmusic.{}".format(_s[:-3]))
 
     try:
-        attribute_list = module.__all__
+        _attribute_list = _module.__all__
     except AttributeError:
-        attribute_list = dir(module)
+        _attribute_list = dir(_module)
     
-    for t in attribute_list:
-        _global_dict[t] = getattr(module, t)
+    for _t in _attribute_list:
+        _global_dict[_t] = getattr(_module, _t)
