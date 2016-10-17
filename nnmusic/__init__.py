@@ -21,4 +21,9 @@ for _s in _os.listdir(__path__[0]):
         _attribute_list = dir(_module)
     
     for _t in _attribute_list:
+        if _t[:1] == "_":
+            continue
+    
         _global_dict[_t] = getattr(_module, _t)
+
+del _module
