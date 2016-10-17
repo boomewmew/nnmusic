@@ -3,11 +3,13 @@
 
 """Reads and writes audio files."""
 
-import soundfile as sf
+import itertools as it
 
 import nnmusic as nnm
 
 import os
+
+import soundfile as sf
 
 import sys
 
@@ -114,13 +116,12 @@ def read_dir(dir_name, batch_size, expected_rate=DEFAULT_RATE,
         channels.
     """
     ERR_STREAM = sys.stderr
-    
-    file_list = os.listdir(dir_name)
 
-    for t in zip(*(iter(file_list),) * batch_size):
-        ret = [None] * batch_size
+    for t in it.zip_longest(*(iter(os.listdir(dir_name)),) * batch_size):
+        file_list = [s for s in t if s != None]
+        ret       = [None] * len(file_list)
     
-        for i, s in enumerate(t):
+        for i, s in enumerate(file_list):
             file_name = "{}/{}".format(dir_name, s)
 
             try:
