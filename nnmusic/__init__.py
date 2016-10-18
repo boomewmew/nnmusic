@@ -15,12 +15,7 @@ for _s in _os.listdir(__path__[0]):
         
     _module = _il.import_module("nnmusic.{}".format(_s[:-3]))
 
-    try:
-        _attribute_list = _module.__all__
-    except AttributeError:
-        _attribute_list = dir(_module)
-    
-    for _t in _attribute_list:
+    for _t in dir(_module):
         if _t[:1] == "_":
             continue
     
