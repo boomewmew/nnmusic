@@ -7,16 +7,48 @@ import itertools as _it
 
 import nnmusic.types as _types
 
-import os as _os
+import os      as _os
+import os.path as _path
 
 import soundfile as _sf
 
 import sys as _sys
 
+class FileNotFoundError(Exception):
+    """Exception indicating a file could not be found for opening.
+    
+    Attributes:
+        file_name -- Name of file.
+    """
+    
+    def __init__(self, file_name):
+        """Constructor."""
+        self.file_name = file_name
+    
+    def __str__(self):
+        """Error message."""
+        return "File {} does not exist.".format(self.file_name)
+
+class InvalidFileError(Exception):
+    """Exception indicating a file exists but is not a valid audio file.
+    
+    Attributes:
+        file_name -- Name of file.
+    """
+    
+    def __init__(self, file_name):
+        """Constructor."""
+        self.file_name = file_name
+    
+    def __str__(self):
+        """Error message."""
+        return "File {} is not a valid audio file.".format(self.file_name)
+
 class SampleRateError(Exception):
     """Exception indicating unexpected sample rate.
     
     Attributes:
+        file_name     -- Name of file.
         sample_rate   -- Actual sample rate of file.
         expected_rate -- Desired sample rate.
     """
@@ -71,8 +103,14 @@ def read(file_name, expected_rate=DEFAULT_RATE,
         A 2D array of amplitudes. The first index runs over time steps. The
         second runs over audio channels.
     """
-    data, sample_rate = _sf.read(file_name, dtype=_types.amplitude,
-                                always_2d=True)
+    if not _path.exists(file_name):
+        raise FileNotFoundError(file_name)
+    
+    try:
+        data, sample_rate = _sf.read(file_name, dtype=_types.amplitude,
+                                    always_2d=True)
+    except RuntimeError:
+        raise InvalidFileError(file_name)
     
     if sample_rate != expected_rate:
         raise SampleRateError(file_name, sample_rate, expected_rate)
@@ -125,6 +163,13 @@ def read_dir(dir_name, batch_size, expected_rate=DEFAULT_RATE,
 
             try:
                 ret[i] = read(file_name)
+            except FileNotFoundError:
+                print(
+                    "File {} was removed from directory {}. Skipping.".format(
+                        s, dir_name
+                    ),
+                    file = read_dir.ERR_STREAM
+                )
             except SampleRateError as e:
                 print(
                     "File {} has sample rate {} Hz (wanted {} Hz). "
@@ -136,13 +181,6 @@ def read_dir(dir_name, batch_size, expected_rate=DEFAULT_RATE,
                 print(
                     "File {} has {} channels (wanted {}). Skipping.".format(
                         file_name, e.n_channels, expected_channels
-                    ),
-                    file = read_dir.ERR_STREAM
-                )
-            except RuntimeError:
-                print(
-                    "File {} was removed from directory {}. Skipping.".format(
-                        s, dir_name
                     ),
                     file = read_dir.ERR_STREAM
                 )
