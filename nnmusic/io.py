@@ -116,8 +116,6 @@ def read_dir(dir_name, batch_size, expected_rate=DEFAULT_RATE,
         of each array runs over time steps, and the second runs over audio
         channels.
     """
-    ERR_STREAM = _sys.stderr
-
     for t in _it.zip_longest(*(iter(_os.listdir(dir_name)),) * batch_size):
         file_list = [s for s in t if s != None]
         ret       = [None] * len(file_list)
@@ -132,21 +130,23 @@ def read_dir(dir_name, batch_size, expected_rate=DEFAULT_RATE,
                     "File {} has sample rate {} Hz (wanted {} Hz). "
                     "Skipping.".format(file_name, e.sample_rate,
                                        expected_rate),
-                    file = ERR_STREAM
+                    file = read_dir.ERR_STREAM
                 )
             except ChannelError as e:
                 print(
                     "File {} has {} channels (wanted {}). Skipping.".format(
                         file_name, e.n_channels, expected_channels
                     ),
-                    file = ERR_STREAM
+                    file = read_dir.ERR_STREAM
                 )
             except RuntimeError:
                 print(
                     "File {} was removed from directory {}. Skipping.".format(
                         s, dir_name
                     ),
-                    file = ERR_STREAM
+                    file = read_dir.ERR_STREAM
                 )
         
         yield ret
+
+read_dir.ERR_STREAM = _sys.stderr
