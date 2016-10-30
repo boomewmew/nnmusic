@@ -1,7 +1,7 @@
 # __init__.py
 # Author: Boo Mew Mew
 
-"""Trains LSTM recursive neural networks to write music."""
+"""Trains LSTM recurrent neural networks to write music."""
 
 import importlib as _il
 

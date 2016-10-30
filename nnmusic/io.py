@@ -14,6 +14,11 @@ import soundfile as _sf
 
 import sys as _sys
 
+DEFAULT_RATE     = 44100
+DEFAULT_CHANNELS = 2
+
+ERR_STREAM = _sys.stderr
+
 class FileNotFoundError(Exception):
     """Exception indicating a file could not be found for opening.
     
@@ -85,9 +90,6 @@ class ChannelError(Exception):
             self.file_name, self.n_channels, self.expected_channels
         )
 
-DEFAULT_RATE     = 44100
-DEFAULT_CHANNELS = 2
-
 def read(file_name, expected_rate=DEFAULT_RATE,
          expected_channels=DEFAULT_CHANNELS):
     """Read an audio file and return the data as a tensor.
@@ -108,7 +110,7 @@ def read(file_name, expected_rate=DEFAULT_RATE,
     
     try:
         data, sample_rate = _sf.read(file_name, dtype=_types.amplitude,
-                                    always_2d=True)
+                                     always_2d=True)
     except RuntimeError:
         raise InvalidFileError(file_name)
     
@@ -159,7 +161,7 @@ def read_dir(dir_name, batch_size, expected_rate=DEFAULT_RATE,
         ret       = [None] * len(file_list)
     
         for i, s in enumerate(file_list):
-            file_name = "{}/{}".format(dir_name, s)
+            file_name = _path.join(dir_name, s)
 
             try:
                 ret[i] = read(file_name)
@@ -168,23 +170,21 @@ def read_dir(dir_name, batch_size, expected_rate=DEFAULT_RATE,
                     "File {} was removed from directory {}. Skipping.".format(
                         s, dir_name
                     ),
-                    file = read_dir.ERR_STREAM
+                    file = ERR_STREAM
                 )
             except SampleRateError as e:
                 print(
                     "File {} has sample rate {} Hz (wanted {} Hz). "
                     "Skipping.".format(file_name, e.sample_rate,
                                        expected_rate),
-                    file = read_dir.ERR_STREAM
+                    file = ERR_STREAM
                 )
             except ChannelError as e:
                 print(
                     "File {} has {} channels (wanted {}). Skipping.".format(
                         file_name, e.n_channels, expected_channels
                     ),
-                    file = read_dir.ERR_STREAM
+                    file = ERR_STREAM
                 )
         
         yield ret
-
-read_dir.ERR_STREAM = _sys.stderr
