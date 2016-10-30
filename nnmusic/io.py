@@ -7,8 +7,9 @@ import itertools as _it
 
 import nnmusic.types as _types
 
-import os      as _os
-import os.path as _path
+import numpy as _np
+
+import os as _os
 
 import soundfile as _sf
 
@@ -105,7 +106,7 @@ def read(file_name, expected_rate=DEFAULT_RATE,
         A 2D array of amplitudes. The first index runs over time steps. The
         second runs over audio channels.
     """
-    if not _path.exists(file_name):
+    if not _os.path.exists(file_name):
         raise FileNotFoundError(file_name)
     
     try:
@@ -134,9 +135,16 @@ def write(file_name, data, sample_rate=DEFAULT_RATE):
     """
     _sf.write(file_name, data.transpose(), sample_rate)
 
+def _duration(wave):
+    return wave.shape[0]
+
 def read_dir(dir_name, batch_size, expected_rate=DEFAULT_RATE,
              expected_channels=DEFAULT_CHANNELS):
     """Read audio files from a directory.
+    
+    Each file's sequence of amplitudes is padded with enough zeros that all
+    files in the batch have the same length, the length of the longest file in
+    that batch.
     
     The list of files present in the directory is parsed at the beginning of
     the generator's execution. If a file is removed before it is read, the file
@@ -158,13 +166,13 @@ def read_dir(dir_name, batch_size, expected_rate=DEFAULT_RATE,
     """
     for t in _it.zip_longest(*(iter(_os.listdir(dir_name)),) * batch_size):
         file_list = [s for s in t if s != None]
-        ret       = [None] * len(file_list)
+        raw       = [None] * len(file_list)
     
         for i, s in enumerate(file_list):
-            file_name = _path.join(dir_name, s)
+            file_name = _os.path.join(dir_name, s)
 
             try:
-                ret[i] = read(file_name)
+                raw[i] = read(file_name)
             except FileNotFoundError:
                 print(
                     "File {} was removed from directory {}. Skipping.".format(
@@ -187,4 +195,8 @@ def read_dir(dir_name, batch_size, expected_rate=DEFAULT_RATE,
                     file = ERR_STREAM
                 )
         
-        yield ret
+        max_length = max([_duration(a) for a in raw])
+        yield [
+            _np.lib.pad(a, ((0, max_length - _duration(a)), (0, 0)),
+                        "constant", constant_values=(0.,)) for a in raw
+        ]
