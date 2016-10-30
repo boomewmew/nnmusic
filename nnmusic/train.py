@@ -60,9 +60,8 @@ def train_and_test(train_dir, test_dir, batch_size, out_file_name,
     
     saver = _tf.train.Saver()
     
-    init_op = _tf.initialize_all_variables()
     sess    = _tf.Session()
-    sess.run(init_op)
+    sess.run(_tf.initialize_all_variables())
     
     def run(obj, batch):
         if len(batch):
