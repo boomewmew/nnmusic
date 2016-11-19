@@ -18,7 +18,14 @@ import sys as _sys
 DEFAULT_RATE     = 44100
 DEFAULT_CHANNELS = 2
 
-ERR_STREAM = _sys.stderr
+def print_now(message, stream=_sys.stdout):
+    """Print a message to a stream and immediately flush the stream."""
+    print(message, file=stream)
+    stream.flush()
+
+def print_err_now(message):
+    """Print an error message and immediately flush the stream."""
+    print_now(message, _sys.stderr)
 
 class FileNotFoundError(Exception):
     """Exception indicating a file could not be found for opening.
@@ -118,11 +125,11 @@ def read(file_name, expected_rate=DEFAULT_RATE,
     if sample_rate != expected_rate:
         raise SampleRateError(file_name, sample_rate, expected_rate)
     
-    n_channels = data.shape[0]
+    n_channels = data.shape[1]
     if n_channels != expected_channels:
         raise ChannelError(file_name, n_channels, expected_channels)
         
-    return data.transpose()
+    return data
 
 def write(file_name, data, sample_rate=DEFAULT_RATE):
     """Write an audio file.
@@ -133,10 +140,7 @@ def write(file_name, data, sample_rate=DEFAULT_RATE):
                        steps. The second runs over audio channels.
         sample_rate -- Sample rate in Hz.
     """
-    _sf.write(file_name, data.transpose(), sample_rate)
-
-def _duration(wave):
-    return wave.shape[0]
+    _sf.write(file_name, sample_rate)
 
 def read_dir(dir_name, batch_size, expected_rate=DEFAULT_RATE,
              expected_channels=DEFAULT_CHANNELS):
@@ -172,31 +176,35 @@ def read_dir(dir_name, batch_size, expected_rate=DEFAULT_RATE,
             file_name = _os.path.join(dir_name, s)
 
             try:
-                raw[i] = read(file_name)
+                raw[i] = read(file_name, expected_rate, expected_channels)
             except FileNotFoundError:
-                print(
+                print_err_now(
                     "File {} was removed from directory {}. Skipping.".format(
                         s, dir_name
-                    ),
-                    file = ERR_STREAM
+                    )
                 )
             except SampleRateError as e:
-                print(
+                print_err_now(
                     "File {} has sample rate {} Hz (wanted {} Hz). "
                     "Skipping.".format(file_name, e.sample_rate,
-                                       expected_rate),
-                    file = ERR_STREAM
+                                       expected_rate)
                 )
             except ChannelError as e:
-                print(
+                print_err_now(
                     "File {} has {} channels (wanted {}). Skipping.".format(
                         file_name, e.n_channels, expected_channels
-                    ),
-                    file = ERR_STREAM
+                    )
                 )
-        
-        max_length = max([_duration(a) for a in raw])
+                
+        successful = [a for a in raw if a is not None]
+        if not len(successful):
+            continue
+
+        duration   = [a.shape[0] for a in successful]
+        max_length = max(duration)
+
         yield [
-            _np.lib.pad(a, ((0, max_length - _duration(a)), (0, 0)),
-                        "constant", constant_values=(0.,)) for a in raw
+            _np.lib.pad(a, ((0, max_length - n), (0, 0)), "constant",
+                        constant_values=(0.,))
+            for a, n in zip(successful, duration)
         ]

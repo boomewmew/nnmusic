@@ -35,12 +35,17 @@ def train_and_test(train_dir, test_dir, batch_size, out_file_name,
     data       = _tf.placeholder(_types.tensor_amplitude, data_shape)
     target     = _tf.placeholder(_types.tensor_amplitude, data_shape)
     
-    weight = _tf.Variable(_tf.truncated_normal((n_hidden, n_channels)),
-                          dtype=_types.tensor_amplitude)
-    bias   = _tf.Variable(_tf.constant(0.1, shape=(n_channels,)),
-                          dtype=_types.tensor_amplitude)
+    weight = _tf.Variable(
+        _tf.truncated_normal((n_hidden, n_channels),
+                             dtype=_types.tensor_amplitude),
+        dtype=_types.tensor_amplitude
+    )
+    bias = _tf.Variable(
+        _tf.constant(0.1, shape=(n_channels,), dtype=_types.tensor_amplitude),
+        dtype=_types.tensor_amplitude
+    )
     
-    nonzero = _tf.to_int32(
+    nonzero = _types.to_amplitude(
         _tf.not_equal(target, _tf.constant(0., dtype=_types.tensor_amplitude))
     )
     n_nonzero         = _tf.reduce_sum(nonzero)
@@ -73,16 +78,17 @@ def train_and_test(train_dir, test_dir, batch_size, out_file_name,
         )
     
     for i in range(n_epochs):
+        _io.print_now("Epoch {}/{}.".format(i, n_epochs))
         for l in _io.read_dir(train_dir, batch_size, sample_rate, n_channels):
             run(minimize, l)
 
     sum_sq     = _types.amplitude(0.)
     sum_points = 0
     for l in _io.read_dir(test_dir, batch_size, sample_rate, n_channels):
-        n_points    = run(n_nonzero, l)
+        n_points    = int(run(n_nonzero, l))
         sum_sq     += run(mean_square_error, l) * n_points
         sum_points += n_points
-    print(
+    _io.print_now(
         "RMS error on testing sample = {}.".format(
             _math.sqrt(sum_sq / sum_points)
         )
