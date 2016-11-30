@@ -12,20 +12,19 @@ import numpy as _np
 
 import tensorflow as _tf
 
-def _trim(wave):
-    return wave[1:, :]
+DEFAULT_EPOCHS=5000
 
-def train_and_test(train_dir, test_dir, batch_size, out_file_name,
+def train_and_test(train_dir, test_dir, out_file_name, batch_size=1,
                    sample_rate=_io.DEFAULT_RATE,
                    n_channels=_io.DEFAULT_CHANNELS, n_hidden=24,
-                   n_epochs=5000):
+                   n_epochs=DEFAULT_EPOCHS):
     """Train and test an LSTM recurrent neural network for writing music.
     
     Keyword arguments:
         train_dir     -- Directory containing audio files for training.
         test_dir      -- Directory containing audio files for testing.
-        batch_size    -- Number of audio files per batch.
         out_file_name -- File to write neural-net state to.
+        batch_size    -- Number of audio files per batch.
         sample_rate   -- Expected sample rate in Hz of audio files.
         n_channels    -- Expected number of audio channels.
         n_hidden      -- Number of nodes per hidden layer.
@@ -74,7 +73,7 @@ def train_and_test(train_dir, test_dir, batch_size, out_file_name,
         return sess.run(
             obj,
             {data  : batch,
-             target: [_np.vstack((_trim(a), zeros)) for a in batch]}
+             target: [_np.vstack((a[1:, :], zeros)) for a in batch]}
         )
     
     for i in range(n_epochs):

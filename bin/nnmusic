@@ -1,0 +1,54 @@
+#!/usr/bin/env python
+
+# nnmusic
+# Author: Boo Mew Mew
+
+"""Train and run nnmusic neural nets."""
+
+import argparse as ap
+
+import nnmusic as nnm
+
+TRAIN_VERB = "train"
+RUN_VERB   = "run"
+
+parser = ap.ArgumentParser(
+    description="Train and run neural nets for music composition.",
+    epilog="Flags only relevant to one verb are ignored by the other.",
+    formatter_class=ap.ArgumentDefaultsHelpFormatter
+)
+
+parser.add_argument("verb", default=ap.SUPPRESS,
+                    choices=(TRAIN_VERB, RUN_VERB),
+                    help="Action to perform.")
+
+parser.add_argument("-t", "--train-dir", default=ap.SUPPRESS,
+                    help="Directory containing audio files for training.")
+
+parser.add_argument("-T", "--test-dir", default=ap.SUPPRESS,
+                    help="Directory containing audio files for testing.")
+
+parser.add_argument("-s", "--sample-rate", default=nnm.DEFAULT_RATE, type=int,
+                    help="Expected sample rate in Hz.")
+
+parser.add_argument("-n", "--n-epochs", default=nnm.DEFAULT_EPOCHS, type=int,
+                    help="Number of training epochs.")
+
+parser.add_argument("-o", "--out-file-name", default=ap.SUPPRESS,
+                    help="Output file.")
+
+options = parser.parse_args()
+
+if options.verb == TRAIN_VERB:
+
+    nnm.train_and_test(options.train_dir, options.test_dir,
+                       options.out_file_name, sample_rate=options.sample_rate,
+                       n_epochs=options.n_epochs)
+
+elif options.verb == RUN_VERB:
+
+    raise SystemExit("Verb \"{}\" not yet implemented.".format(RUN_VERB))
+
+else:
+
+    raise SystemExit("Unrecognized verb \"{}\".".format(options.verb))
