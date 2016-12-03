@@ -140,7 +140,7 @@ def write(file_name, data, sample_rate=DEFAULT_RATE):
                        steps. The second runs over audio channels.
         sample_rate -- Sample rate in Hz.
     """
-    _sf.write(file_name, sample_rate)
+    _sf.write(file_name, data, sample_rate)
 
 def read_dir(dir_name, batch_size, expected_rate=DEFAULT_RATE,
              expected_channels=DEFAULT_CHANNELS):
@@ -169,14 +169,15 @@ def read_dir(dir_name, batch_size, expected_rate=DEFAULT_RATE,
         channels.
     """
     for t in _it.zip_longest(*(iter(_os.listdir(dir_name)),) * batch_size):
-        file_list = [s for s in t if s != None]
-        raw       = [None] * len(file_list)
-    
-        for i, s in enumerate(file_list):
+        data = []
+        for s in t:
+            if s == None:
+                continue
+        
             file_name = _os.path.join(dir_name, s)
 
             try:
-                raw[i] = read(file_name, expected_rate, expected_channels)
+                data.append(read(file_name, expected_rate, expected_channels))
             except FileNotFoundError:
                 print_err_now(
                     "File {} was removed from directory {}. Skipping.".format(
@@ -195,16 +196,20 @@ def read_dir(dir_name, batch_size, expected_rate=DEFAULT_RATE,
                         file_name, e.n_channels, expected_channels
                     )
                 )
-                
-        successful = [a for a in raw if a is not None]
-        if not len(successful):
-            continue
 
-        duration   = [a.shape[0] for a in successful]
+        if not data:
+            continue
+                
+        # Truncate file. Needed to reduce memory usage. In the future this will
+        # be solved using tensorflow.nn.state_saving_rnn and
+        # tensorflow.contrib.training.SequenceQueueingStateSaver.
+        data = [a[:10000, :] for a in data]
+                
+        duration   = [a.shape[0] for a in data]
         max_length = max(duration)
 
         yield [
             _np.lib.pad(a, ((0, max_length - n), (0, 0)), "constant",
                         constant_values=(0.,))
-            for a, n in zip(successful, duration)
+            for a, n in zip(data, duration)
         ]

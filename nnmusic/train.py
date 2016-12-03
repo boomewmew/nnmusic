@@ -50,17 +50,18 @@ def train_and_test(train_dir, test_dir, out_file_name, batch_size=1,
     n_nonzero         = _tf.reduce_sum(nonzero)
     mean_square_error = _tf.reduce_sum(
         _tf.squared_difference(
-            _tf.einsum(
-                "ijk,kl->ijl",
+            _tf.batch_matmul(
                 _tf.nn.dynamic_rnn(
                     _tf.nn.rnn_cell.LSTMCell(n_hidden, state_is_tuple=True),
                     data, dtype=_types.tensor_amplitude
-                )[0], weight
+                )[0],
+                _tf.reshape(_tf.tile(weight, (batch_size, 1)),
+                            (-1, n_hidden, n_channels))
             ) + bias, target
         ) * nonzero
     ) / n_nonzero
     
-    minimize  = _tf.train.AdamOptimizer().minimize(mean_square_error)
+    minimize = _tf.train.AdamOptimizer().minimize(mean_square_error)
     
     saver = _tf.train.Saver()
     
@@ -68,8 +69,7 @@ def train_and_test(train_dir, test_dir, out_file_name, batch_size=1,
     sess.run(_tf.initialize_all_variables())
     
     def run(obj, batch):
-        if len(batch):
-            zeros = _np.zeros((1, batch[0].shape[1]), _types.amplitude)
+        zeros = _np.zeros((1, batch[0].shape[1]), _types.amplitude)
         return sess.run(
             obj,
             {data  : batch,
