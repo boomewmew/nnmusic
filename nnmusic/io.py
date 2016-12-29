@@ -16,7 +16,7 @@
 
 # Address correspondence about this library to boomewmew@gmail.com.
 
-"""Reads and writes audio files."""
+"""Performs reading and writing of audio files and log formatting."""
 
 import nnmusic.types as _types
 import numpy         as _np
@@ -170,7 +170,7 @@ def print_err_now(message):
     print_now(message, _sys.stderr, ANSI_ERR)
 
 def print_warn_now(message):
-    """Print a warning an immediately flush the stream.
+    """Print a warning and immediately flush the stream.
     
     Keyword argument:
         message -- The text to print.
