@@ -1,54 +1,70 @@
 #!/usr/bin/env python
 
-# nnmusic
-# Author: Boo Mew Mew
+# nnmusic, a library for composing music using artificial neural networks.
+# Copyright (C) 2016  Boo Mew Mew
+
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+# Address correspondence about this library to boomewmew@gmail.com.
 
 """Train and run nnmusic neural nets."""
 
 import argparse as ap
-
-import nnmusic as nnm
+import nnmusic  as nnm
 
 TRAIN_VERB = "train"
-RUN_VERB   = "run"
 
 parser = ap.ArgumentParser(
     description="Train and run neural nets for music composition.",
-    epilog="Flags only relevant to one verb are ignored by the other.",
+    epilog="Flags only relevant to one verb are ignored by the others.",
     formatter_class=ap.ArgumentDefaultsHelpFormatter
 )
 
-parser.add_argument("verb", default=ap.SUPPRESS,
-                    choices=(TRAIN_VERB, RUN_VERB),
-                    help="Action to perform.")
+parser.add_argument(
+    "verb", default=ap.SUPPRESS, choices=(TRAIN_VERB,),
+    help="Action to perform."
+)
 
-parser.add_argument("-t", "--train-dir", default=ap.SUPPRESS,
-                    help="Directory containing audio files for training.")
+parser.add_argument(
+    "-N", "--n-threads", default=1, type=int, help="Number of threads to run."
+)
 
-parser.add_argument("-T", "--test-dir", default=ap.SUPPRESS,
-                    help="Directory containing audio files for testing.")
+parser.add_argument(
+    "-t", "--in-dir", default=ap.SUPPRESS,
+    help="Directory containing audio files for training or testing."
+)
 
-parser.add_argument("-s", "--sample-rate", default=nnm.DEFAULT_RATE, type=int,
-                    help="Expected sample rate in Hz.")
+parser.add_argument(
+    "-s", "--sample-rate", default=nnm.DEFAULT_RATE, type=int,
+    help="Expected sample rate in Hz."
+)
 
-parser.add_argument("-n", "--n-epochs", default=nnm.DEFAULT_EPOCHS, type=int,
-                    help="Number of training epochs.")
+parser.add_argument(
+    "-n", "--n-epochs", default=nnm.DEFAULT_EPOCHS, type=int,
+    help="Number of training epochs."
+)
 
-parser.add_argument("-o", "--out-file-name", default=ap.SUPPRESS,
-                    help="Output file.")
+parser.add_argument(
+    "-o", "--out-file-name", default=ap.SUPPRESS, help="Output file."
+)
 
 options = parser.parse_args()
 
 if options.verb == TRAIN_VERB:
-
-    nnm.train_and_test(options.train_dir, options.test_dir,
-                       options.out_file_name, sample_rate=options.sample_rate,
-                       n_epochs=options.n_epochs)
-
-elif options.verb == RUN_VERB:
-
-    raise SystemExit("Verb \"{}\" not yet implemented.".format(RUN_VERB))
-
+    nnm.train_nn(options.in_dir, options.out_file_name, options.n_threads,
+                 sample_rate=options.sample_rate, n_epochs=options.n_epochs)
 else:
-
-    raise SystemExit("Unrecognized verb \"{}\".".format(options.verb))
+    raise SystemExit(
+        nnm.wrap_err("Unrecognized verb \"{}\".".format(options.verb))
+    )
