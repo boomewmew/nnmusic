@@ -316,6 +316,7 @@ def read_audio_no_throw(file_name, expected_rate=DEFAULT_RATE,
     
     If the file cannot be opened or has an invalid sample rate or number of
     channels, a warning is printed to stderr, and None is returned.
+    
     Keyword arguments:
         file_name         -- Name of input file.
         expected_rate     -- Throws exception if file's sample rate in Hz
