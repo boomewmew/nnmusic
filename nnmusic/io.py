@@ -61,18 +61,19 @@ class ANSICode:
         Return value:
             The integer color code.
         """
+        if color is None:
+            return None
+        
         try:
-            if color is None:
-                return None
-            
             ret = ANSICode._COLOR_DICT[color]
-            if bg:
-                ret += 10
-            return ret
-
         except KeyError:
             raise ANSICodeError(color)
     
+        if bg:
+            ret += 10
+
+        return ret
+
     def __init__(self, fg_color=None, bg_color=None, bright=None, italics=None,
                  underline=None, inverse=None, strikethrough=None,
                  reset=False):
