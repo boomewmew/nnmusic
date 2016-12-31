@@ -18,6 +18,7 @@
 
 """Performs reading and writing of audio files and log formatting."""
 
+import h5py          as _h5py
 import nnmusic.types as _types
 import numpy         as _np
 import os            as _os
@@ -26,6 +27,10 @@ import sys           as _sys
 
 DEFAULT_RATE     = 44100
 DEFAULT_CHANNELS = 2
+
+DATASET_NAME = "audio_data"
+
+PAD_AMPLITUDE = _types.amplitude(0.)
 
 class ANSICodeError(Exception):
     """Exception indicating an unknown ANSI color code."""
@@ -269,9 +274,9 @@ class ChannelError(Exception):
             )
         )
 
-def read(file_name, expected_rate=DEFAULT_RATE,
-         expected_channels=DEFAULT_CHANNELS):
-    """Read an audio file and return the data as a tensor.
+def read_audio(file_name, expected_rate=DEFAULT_RATE,
+               expected_channels=DEFAULT_CHANNELS):
+    """Read an audio file and return the data as an array.
     
     Keyword arguments:
         file_name         -- Name of input file.
@@ -304,7 +309,59 @@ def read(file_name, expected_rate=DEFAULT_RATE,
         
     return data
 
-def write(file_name, data, sample_rate=DEFAULT_RATE):
+def read_audio_no_throw(file_name, expected_rate=DEFAULT_RATE,
+                        expected_channels=DEFAULT_CHANNELS):
+    """Read an audio file and return the data as an array, ignoring exceptions.
+    
+    If the file cannot be opened or has an invalid sample rate or number of
+    channels, a warning is printed to stderr, and None is returned.
+    Keyword arguments:
+        file_name         -- Name of input file.
+        expected_rate     -- Throws exception if file's sample rate in Hz
+                             differs from this value.
+        expected_channels -- Throws exception if file contains number of
+                             channels differing from this value.
+    
+    Return value:
+        If the file is read successfully, a 2D array of amplitudes is returned.
+        The zeroth index runs over time steps. The first runs over audio
+        channels.
+        
+        If the read fails, None is returned.
+    """
+    try:
+
+        return read_audio(file_name, expected_rate, expected_channels)
+
+    except SoundFileNotFoundError:
+
+        print_warn_now("File {} does not exist. Skipping.".format(file_name))
+
+    except InvalidFileError:
+
+        print_warn_now(
+            "File {} could not be read. Skipping.".format(file_name)
+        )
+
+    except SampleRateError as e:
+
+        print_warn_now(
+            "File {} has sample rate {} Hz. Expected {} Hz. Skipping.".format(
+                file_name, e.sample_rate, expected_rate
+            )
+        )
+
+    except ChannelError as e:
+
+        print_warn_now(
+            "File {} has {} channels. Expected {}. Skipping.".format(
+                file_name, e.n_channels, expected_channels
+            )
+        )
+
+    return None
+
+def write_audio(file_name, data, sample_rate=DEFAULT_RATE):
     """Write an audio file.
     
     Keyword arguments:
@@ -317,65 +374,44 @@ def write(file_name, data, sample_rate=DEFAULT_RATE):
     
     _sf.write(file_name, data, sample_rate)
 
-class FileData:
-    """Data read from an audio file.
-    
-    Attributes:
-        data      -- A 2D array of amplitudes. The zeroth index of each array
-                     runs over time steps, and the first runs over audio
-                     channels.
-        file_name -- Name of audio file.
-    """
-    def __init__(self, data, file_name):
-        """Constructor."""
-        self.data      = data
-        self.file_name = file_name
-
-def read_dir(dir_name, expected_rate=DEFAULT_RATE,
-             expected_channels=DEFAULT_CHANNELS):
-    """Read audio files from a directory.
-    
-    The list of files present in the directory is parsed at the beginning of
-    the generator's execution. If a file is removed before it is read, the file
-    is skipped, with a warning printed to stderr.
-    
-    If a file does not have the desired sample rate or number of channels, it
-    is likewise skipped with a warning sent to stderr.
+def audio_to_hdf5(in_dir, out_file_name, expected_rate=DEFAULT_RATE,
+                  expected_channels=DEFAULT_CHANNELS):
+    """Convert all audio files in a directory to a single HDF5 file.
     
     Keyword arguments:
-        dir_name          -- Directory to be read from.
-        expected_rate     -- Desired sample rate in Hz.
-        expected_channels -- Desired number of audio channels.
-    
-    Return value:
-        A FileData object containing the files data and name.
+        in_dir            -- Directory to read from.
+        out_file_name     -- Name of output HDF5 file.
+        expected_rate     -- Throws exception if file's sample rate in Hz
+                             differs from this value.
+        expected_channels -- Throws exception if file contains number of
+                             channels differing from this value.
     """
-    try:
-        file_list = _os.listdir(dir_name)
-    except FileNotFoundError:
-        raise DirNotFoundError(dir_name)
+    print_now(
+        "Converting audio files in directory {} to HDF5 file {}.".format(
+            in_dir, out_file_name
+        )
+    )
     
-    for s in _os.listdir(dir_name):
-        file_name = _os.path.join(dir_name, s)
+    in_file_names = [_os.path.join(in_dir, s) for s in _os.listdir(in_dir)]
+    
+    max_len = 0
+    usable  = []
+    for s in in_file_names:
+        data = read_audio_no_throw(s, expected_rate, expected_channels)
+        if data is None:
+            continue
+        max_len = max(max_len, data.shape[0])
+        usable.append(s)
+    
+    out_file = _h5py.File(out_file_name, "w")
 
-        try:
-            yield FileData(read(file_name, expected_rate, expected_channels),
-                           file_name)
-        except SoundFileNotFoundError:
-            print_warn_now(
-                "File {} was removed from directory {}. Skipping.".format(
-                    s, dir_name
-                )
-            )
-        except SampleRateError as e:
-            print_warn_now(
-                "File {} has sample rate {} Hz (wanted {} Hz). "
-                "Skipping.".format(file_name, e.sample_rate,
-                                   expected_rate)
-            )
-        except ChannelError as e:
-            print_warn_now(
-                "File {} has {} channels (wanted {}). Skipping.".format(
-                    file_name, e.n_channels, expected_channels
-                )
-            )
+    dataset  = out_file.create_dataset(
+        DATASET_NAME, (len(usable), max_len, expected_channels),
+        dtype=_types.amplitude
+    )
+    for i, s in enumerate(usable):
+        data       = read_audio(s, expected_rate, expected_channels)
+        dataset[i] = _np.pad(data, ((0, max_len - data.shape[0]), (0, 0)),
+                             "constant", constant_values=PAD_AMPLITUDE)
+    
+    print_now("Wrote file {}.".format(out_file_name))

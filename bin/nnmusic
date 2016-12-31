@@ -23,7 +23,8 @@
 import argparse as ap
 import nnmusic  as nnm
 
-TRAIN_VERB = "train"
+CONVERT_VERB = "convert"
+TRAIN_VERB   = "train"
 
 parser = ap.ArgumentParser(
     description="Train and run neural nets for music composition.",
@@ -32,7 +33,7 @@ parser = ap.ArgumentParser(
 )
 
 parser.add_argument(
-    "verb", default=ap.SUPPRESS, choices=(TRAIN_VERB,),
+    "verb", default=ap.SUPPRESS, choices=(CONVERT_VERB, TRAIN_VERB),
     help="Action to perform."
 )
 
@@ -42,7 +43,7 @@ parser.add_argument(
 
 parser.add_argument(
     "-t", "--in-dir", default=ap.SUPPRESS,
-    help="Directory containing audio files for training or testing."
+    help="Directory containing audio files."
 )
 
 parser.add_argument(
@@ -61,10 +62,18 @@ parser.add_argument(
 
 options = parser.parse_args()
 
-if options.verb == TRAIN_VERB:
+if options.verb == CONVERT_VERB:
+
+    nnm.audio_to_hdf5(options.in_dir, options.out_file_name,
+                      options.sample_rate)
+
+elif options.verb == TRAIN_VERB:
+
     nnm.train_nn(options.in_dir, options.out_file_name, options.n_threads,
                  sample_rate=options.sample_rate, n_epochs=options.n_epochs)
+
 else:
+
     raise SystemExit(
         nnm.wrap_err("Unrecognized verb \"{}\".".format(options.verb))
     )
