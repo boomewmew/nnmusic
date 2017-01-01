@@ -27,9 +27,9 @@ CONVERT_VERB = "convert"
 TRAIN_VERB   = "train"
 
 parser = ap.ArgumentParser(
-    description="Train and run neural nets for music composition.",
-    epilog="Flags only relevant to one verb are ignored by the others.",
-    formatter_class=ap.ArgumentDefaultsHelpFormatter
+    description="Each flag's description specifies in parentheses the verbs "
+    "for which it is appropriate. Flags not appropriate for the supplied verb "
+    "will be ignored.", formatter_class=ap.ArgumentDefaultsHelpFormatter
 )
 
 parser.add_argument(
@@ -38,39 +38,53 @@ parser.add_argument(
 )
 
 parser.add_argument(
-    "-N", "--n-threads", default=1, type=int, help="Number of threads to run."
-)
-
-parser.add_argument(
-    "-t", "--in-dir", default=ap.SUPPRESS,
-    help="Directory containing audio files."
+    "-a", "--audio-dir", default=".",
+    help="Directory containing audio files ({}).".format(CONVERT_VERB)
 )
 
 parser.add_argument(
     "-s", "--sample-rate", default=nnm.DEFAULT_RATE, type=int,
-    help="Expected sample rate in Hz."
+    help="Expected sample rate in Hz ({}).".format(CONVERT_VERB)
 )
 
 parser.add_argument(
-    "-n", "--n-epochs", default=nnm.DEFAULT_EPOCHS, type=int,
-    help="Number of training epochs."
+    "-H", "--hdf5-file-name", default="audio.hdf5",
+    help="HDF5 file ({}, {}).".format(CONVERT_VERB, TRAIN_VERB)
 )
 
 parser.add_argument(
-    "-o", "--out-file-name", default=ap.SUPPRESS, help="Output file."
+    "-c", "--checkpoint-file", default="nn.chp",
+    help="Checkpoint file containing trained neural-net state ({}).".format(
+        TRAIN_VERB
+    )
+)
+
+parser.add_argument(
+    "-l", "--log-dir", default=".",
+    help="Directory for printing training logs ({}).".format(TRAIN_VERB)
+)
+
+parser.add_argument(
+    "-n", "--n-threads", default=nnm.DEFAULT_THREADS,
+    help="Number of threads ({}).".format(TRAIN_VERB)
+)
+
+parser.add_argument(
+    "-N", "--n-epochs", default=nnm.DEFAULT_EPOCHS,
+    help="Number of training epochs ({}).".format(TRAIN_VERB)
 )
 
 options = parser.parse_args()
 
 if options.verb == CONVERT_VERB:
 
-    nnm.audio_to_hdf5(options.in_dir, options.out_file_name,
+    nnm.audio_to_hdf5(options.audio_dir, options.hdf5_file_name,
                       options.sample_rate)
 
 elif options.verb == TRAIN_VERB:
 
-    nnm.train_nn(options.in_dir, options.out_file_name, options.n_threads,
-                 sample_rate=options.sample_rate, n_epochs=options.n_epochs)
+    nnm.train_nn(options.hdf5_file_name, options.checkpoint_file,
+                 options.log_dir, options.n_threads, n_epochs=options.n_epochs)
 
 else:
 

@@ -394,16 +394,15 @@ def audio_to_hdf5(in_dir, out_file_name, expected_rate=DEFAULT_RATE,
         )
     )
     
-    in_file_names = [_os.path.join(in_dir, s) for s in _os.listdir(in_dir)]
-    
     max_len = 0
     usable  = []
-    for s in in_file_names:
-        data = read_audio_no_throw(s, expected_rate, expected_channels)
+    for s in _os.listdir(in_dir):
+        file_name = _os.path.join(in_dir, s)
+        data = read_audio_no_throw(file_name, expected_rate, expected_channels)
         if data is None:
             continue
         max_len = max(max_len, data.shape[0])
-        usable.append(s)
+        usable.append(file_name)
     
     out_file = _h5py.File(out_file_name, "w")
 
