@@ -19,6 +19,7 @@
 """Performs reading and writing of audio files and log formatting."""
 
 import h5py          as _h5py
+import math          as _math
 import nnmusic.types as _types
 import numpy         as _np
 import os            as _os
@@ -29,6 +30,8 @@ DEFAULT_RATE     = 44100
 DEFAULT_CHANNELS = 2
 
 DATASET_NAME = "audio_data"
+
+DEFAULT_CHUNK_SIZE = 1000
 
 PAD_AMPLITUDE = _types.amplitude(0.)
 
@@ -307,7 +310,7 @@ def read_audio(file_name, expected_rate=DEFAULT_RATE,
     n_channels = data.shape[1]
     if n_channels != expected_channels:
         raise ChannelError(file_name, n_channels, expected_channels)
-        
+    
     return data
 
 def read_audio_no_throw(file_name, expected_rate=DEFAULT_RATE,
@@ -376,13 +379,18 @@ def write_audio(file_name, data, sample_rate=DEFAULT_RATE):
     
     _sf.write(file_name, data, sample_rate)
 
-def audio_to_hdf5(in_dir, out_file_name, expected_rate=DEFAULT_RATE,
+def audio_to_hdf5(in_dir, out_file_name, chunk_size=DEFAULT_CHUNK_SIZE,
+                  expected_rate=DEFAULT_RATE,
                   expected_channels=DEFAULT_CHANNELS):
     """Convert all audio files in a directory to a single HDF5 file.
+    
+    Audio files are cut into chunks of size chunk_size. The last chunk from
+    each file is padded with zeros.
     
     Keyword arguments:
         in_dir            -- Directory to read from.
         out_file_name     -- Name of output HDF5 file.
+        chunk_size        -- Number of time steps in each chunk.
         expected_rate     -- Throws exception if file's sample rate in Hz
                              differs from this value.
         expected_channels -- Throws exception if file contains number of
@@ -394,25 +402,29 @@ def audio_to_hdf5(in_dir, out_file_name, expected_rate=DEFAULT_RATE,
         )
     )
     
-    max_len = 0
-    usable  = []
+    usable   = []
+    n_chunks = []
     for s in _os.listdir(in_dir):
         file_name = _os.path.join(in_dir, s)
         data = read_audio_no_throw(file_name, expected_rate, expected_channels)
+        
         if data is None:
             continue
-        max_len = max(max_len, data.shape[0])
+        
         usable.append(file_name)
+        n_chunks.append(_math.ceil(data.shape[0] / chunk_size))
     
-    out_file = _h5py.File(out_file_name, "w")
-
-    dataset  = out_file.create_dataset(
-        DATASET_NAME, (len(usable), max_len, expected_channels),
+    dataset = _h5py.File(out_file_name, "w").create_dataset(
+        DATASET_NAME, (sum(n_chunks), chunk_size, expected_channels),
         dtype=_types.amplitude
     )
-    for i, s in enumerate(usable):
-        data       = read_audio(s, expected_rate, expected_channels)
-        dataset[i] = _np.pad(data, ((0, max_len - data.shape[0]), (0, 0)),
-                             "constant", constant_values=PAD_AMPLITUDE)
+    
+    for s, n in zip(usable, n_chunks):
+        data = read_audio(s, expected_rate, expected_channels)
+        for i in range(n):
+            chunk      = data[i * chunk_size:(i + 1) * chunk_size, :]
+            dataset[i] = _np.pad(chunk,
+                                 ((0, chunk_size - chunk.shape[0]), (0, 0)),
+                                 "constant", constant_values=PAD_AMPLITUDE)
     
     print_now("Wrote file {}.".format(out_file_name))

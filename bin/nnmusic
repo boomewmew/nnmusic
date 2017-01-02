@@ -38,7 +38,7 @@ parser.add_argument(
 )
 
 parser.add_argument(
-    "-a", "--audio-dir", default=".",
+    "-a", "--audio-dir", default="audio",
     help="Directory containing audio files ({}).".format(CONVERT_VERB)
 )
 
@@ -53,24 +53,30 @@ parser.add_argument(
 )
 
 parser.add_argument(
-    "-c", "--checkpoint-file", default="nn.chp",
-    help="Checkpoint file containing trained neural-net state ({}).".format(
-        TRAIN_VERB
+    "-C", "--chunk-size", default=nnm.DEFAULT_CHUNK_SIZE, type=int,
+    help="Number of time steps per chunk of audio data ({}).".format(
+        CONVERT_VERB
     )
 )
 
 parser.add_argument(
-    "-l", "--log-dir", default=".",
+    "-c", "--checkpoint-dir", default="weights",
+    help="Checkpoint directory containing trained neural-net state "
+    "({}).".format(TRAIN_VERB)
+)
+
+parser.add_argument(
+    "-l", "--log-dir", default="log",
     help="Directory for printing training logs ({}).".format(TRAIN_VERB)
 )
 
 parser.add_argument(
-    "-n", "--n-threads", default=nnm.DEFAULT_THREADS,
+    "-n", "--n-threads", default=nnm.DEFAULT_THREADS, type=int,
     help="Number of threads ({}).".format(TRAIN_VERB)
 )
 
 parser.add_argument(
-    "-N", "--n-epochs", default=nnm.DEFAULT_EPOCHS,
+    "-N", "--n-epochs", default=nnm.DEFAULT_EPOCHS, type=int,
     help="Number of training epochs ({}).".format(TRAIN_VERB)
 )
 
@@ -79,11 +85,11 @@ options = parser.parse_args()
 if options.verb == CONVERT_VERB:
 
     nnm.audio_to_hdf5(options.audio_dir, options.hdf5_file_name,
-                      options.sample_rate)
+                      options.chunk_size, options.sample_rate)
 
 elif options.verb == TRAIN_VERB:
 
-    nnm.train_nn(options.hdf5_file_name, options.checkpoint_file,
+    nnm.train_nn(options.hdf5_file_name, options.checkpoint_dir,
                  options.log_dir, options.n_threads, n_epochs=options.n_epochs)
 
 else:
