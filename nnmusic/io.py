@@ -50,7 +50,7 @@ class ANSICode:
     """One or more ANSI color or text-formatting codes."""
     
     _COLOR_DICT = {"black": 30, "red": 31, "green": 32, "yellow": 33,
-                   "blue": 32, "magenta": 35, "cyan": 36, "white": 37,
+                   "blue": 34, "magenta": 35, "cyan": 36, "white": 37,
                    "default": 39}
 
     @staticmethod
@@ -250,11 +250,10 @@ class SampleRateError(Exception):
         
     def __str__(self):
         """Error message."""
-        return wrap_err(
-            "File {} has sample rate {} Hz. Expected {} Hz.".format(
-                self.file_name, self.sample_rate, self.expected_rate
-            )
+        message = "File {} has sample rate {} Hz. Expected {} Hz.".format(
+            self.file_name, self.sample_rate, self.expected_rate
         )
+        return wrap_err(message)
 
 class ChannelError(Exception):
     """Exception indicating bad number of channels.
@@ -272,11 +271,10 @@ class ChannelError(Exception):
     
     def __str__(self):
         """Error message."""
-        return wrap_err(
-            "File {} has {} channels. Expected {}.".format(
-                self.file_name, self.n_channels, self.expected_channels
-            )
+        message = "File {} has {} channels. Expected {}.".format(
+            self.file_name, self.n_channels, self.expected_channels
         )
+        return wrap_err(message)
 
 def read_audio(file_name, expected_rate=DEFAULT_RATE,
                expected_channels=DEFAULT_CHANNELS):
@@ -350,19 +348,16 @@ def read_audio_no_throw(file_name, expected_rate=DEFAULT_RATE,
 
     except SampleRateError as e:
 
-        print_warn_now(
-            "File {} has sample rate {} Hz. Expected {} Hz. Skipping.".format(
-                file_name, e.sample_rate, expected_rate
-            )
-        )
+        message = ("File {} has sample rate {} Hz. Expected {} Hz. "
+            "Skipping.".format(file_name, e.sample_rate, expected_rate))
+        print_warn_now(message)
 
     except ChannelError as e:
 
-        print_warn_now(
-            "File {} has {} channels. Expected {}. Skipping.".format(
-                file_name, e.n_channels, expected_channels
-            )
+        message = "File {} has {} channels. Expected {}. Skipping.".format(
+            file_name, e.n_channels, expected_channels
         )
+        print_warn_now(message)
 
     return None
 
@@ -396,14 +391,12 @@ def audio_to_hdf5(in_dir, out_file_name, chunk_size=DEFAULT_CHUNK_SIZE,
         expected_channels -- Throws exception if file contains number of
                              channels differing from this value.
     """
-    print_now(
-        "Converting audio files in directory {} to HDF5 file {}.".format(
-            in_dir, out_file_name
-        )
+    message = "Converting audio files in directory {} to HDF5 file {}.".format(
+        in_dir, out_file_name
     )
+    print_now(message)
     
-    usable   = []
-    n_chunks = []
+    usable = []
     for s in _os.listdir(in_dir):
         file_name = _os.path.join(in_dir, s)
         data = read_audio_no_throw(file_name, expected_rate, expected_channels)
@@ -411,20 +404,22 @@ def audio_to_hdf5(in_dir, out_file_name, chunk_size=DEFAULT_CHUNK_SIZE,
         if data is None:
             continue
         
-        usable.append(file_name)
-        n_chunks.append(_math.ceil(data.shape[0] / chunk_size))
-    
-    dataset = _h5py.File(out_file_name, "w").create_dataset(
-        DATASET_NAME, (sum(n_chunks), chunk_size, expected_channels),
-        dtype=_types.amplitude
-    )
-    
-    for s, n in zip(usable, n_chunks):
-        data = read_audio(s, expected_rate, expected_channels)
-        for i in range(n):
-            chunk      = data[i * chunk_size:(i + 1) * chunk_size, :]
-            dataset[i] = _np.pad(chunk,
-                                 ((0, chunk_size - chunk.shape[0]), (0, 0)),
-                                 "constant", constant_values=PAD_AMPLITUDE)
+        usable.append(file_name, _math.ceil(data.shape[0] / chunk_size))
+
+    with _h5py.File(out_file_name, "w") as f:
+        dataset = f.create_dataset(
+            DATASET_NAME,
+            (sum((t[1] for t in usable)), chunk_size, expected_channels),
+            dtype=_types.amplitude
+        )
+        
+        for s, n in usable:
+            data = read_audio(s, expected_rate, expected_channels)
+            for i in range(n):
+                chunk      = data[i * chunk_size:(i + 1) * chunk_size, :]
+                dataset[i] = _np.pad(
+                    chunk, ((0, chunk_size - chunk.shape[0]), (0, 0)),
+                    "constant", constant_values=PAD_AMPLITUDE
+                )
     
     print_now("Wrote file {}.".format(out_file_name))

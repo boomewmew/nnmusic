@@ -23,8 +23,21 @@
 import argparse as ap
 import nnmusic  as nnm
 
-CONVERT_VERB = "convert"
-TRAIN_VERB   = "train"
+COLOR_DICT = {
+    s: nnm.ANSICode(t)
+    for s, t in (("convert", "green"), ("train", "red"), ("compose", "blue"))
+}
+
+def format_help(message, verbs):
+    """Append compatible verbs to help message.
+    
+    Keyword arguments:
+        message -- Help message.
+        verbs   -- Container of compatible verbs.
+    """
+    return "{} ({})".format(
+        message, ", ".join((nnm.wrap_ansi(s, COLOR_DICT[s]) for s in verbs))
+    )
 
 parser = ap.ArgumentParser(
     description="Each flag's description specifies in parentheses the verbs "
@@ -32,65 +45,62 @@ parser = ap.ArgumentParser(
     "will be ignored.", formatter_class=ap.ArgumentDefaultsHelpFormatter
 )
 
-parser.add_argument(
-    "verb", default=ap.SUPPRESS, choices=(CONVERT_VERB, TRAIN_VERB),
-    help="Action to perform."
-)
+help = "Action to perform."
+parser.add_argument("verb", default=ap.SUPPRESS, choices=COLOR_DICT.keys(),
+                    help=help)
 
-parser.add_argument(
-    "-a", "--audio-dir", default="audio",
-    help="Directory containing audio files ({}).".format(CONVERT_VERB)
-)
+help = format_help("Directory containing audio files.", ("convert",))
+parser.add_argument("-a", "--audio-dir", default="audio", help=help)
 
-parser.add_argument(
-    "-s", "--sample-rate", default=nnm.DEFAULT_RATE, type=int,
-    help="Expected sample rate in Hz ({}).".format(CONVERT_VERB)
-)
+help = format_help("Expected sample rate in Hz.", ("convert", "compose"))
+parser.add_argument("-s", "--sample-rate", default=nnm.DEFAULT_RATE, type=int,
+                    help=help)
 
-parser.add_argument(
-    "-H", "--hdf5-file-name", default="audio.hdf5",
-    help="HDF5 file ({}, {}).".format(CONVERT_VERB, TRAIN_VERB)
-)
+help = format_help("HDF5 file.", ("convert", "train"))
+parser.add_argument("-H", "--hdf5-file", default="audio.hdf5", help=help)
 
-parser.add_argument(
-    "-C", "--chunk-size", default=nnm.DEFAULT_CHUNK_SIZE, type=int,
-    help="Number of time steps per chunk of audio data ({}).".format(
-        CONVERT_VERB
-    )
-)
+help = format_help("Number of time steps per chunk of audio data.",
+                   ("convert",))
+parser.add_argument("-C", "--chunk-size", default=nnm.DEFAULT_CHUNK_SIZE,
+                    type=int, help=help)
 
-parser.add_argument(
-    "-c", "--checkpoint-dir", default="weights",
-    help="Checkpoint directory containing trained neural-net state "
-    "({}).".format(TRAIN_VERB)
-)
+help = format_help("Directory for printing training log.", ("train",))
+parser.add_argument("-l", "--log-dir", default="log", help=help)
 
-parser.add_argument(
-    "-l", "--log-dir", default="log",
-    help="Directory for printing training logs ({}).".format(TRAIN_VERB)
-)
+help = format_help("Number of threads", ("train",))
+parser.add_argument("-n", "--n-threads", default=nnm.DEFAULT_THREADS, type=int,
+                    help=help)
 
-parser.add_argument(
-    "-n", "--n-threads", default=nnm.DEFAULT_THREADS, type=int,
-    help="Number of threads ({}).".format(TRAIN_VERB)
-)
+help = format_help("Number of training epochs.", ("train",))
+parser.add_argument("-N", "--n-epochs", default=nnm.DEFAULT_EPOCHS, type=int,
+                    help=help)
 
-parser.add_argument(
-    "-N", "--n-epochs", default=nnm.DEFAULT_EPOCHS, type=int,
-    help="Number of training epochs ({}).".format(TRAIN_VERB)
-)
+help = format_help("File containing neural-net state.", ("train", "compose"))
+parser.add_argument("-p", "--pickle-file", default="nn.pickle", help=help)
+
+help = format_help("Audio file to write to.", ("compose",))
+parser.add_argument("-A", "--audio-file", default="audio.wav", help=help)
+
+help = format_help("Number of time steps in composition.", ("compose",))
+parser.add_argument("-d", "--duration", default=nnm.DEFAULT_RATE * 5 * 60,
+                    type=int, help=help)
 
 options = parser.parse_args()
 
-if options.verb == CONVERT_VERB:
+if options.verb == "convert":
 
-    nnm.audio_to_hdf5(options.audio_dir, options.hdf5_file_name,
+    nnm.audio_to_hdf5(options.audio_dir, options.hdf5_file,
                       options.chunk_size, options.sample_rate)
 
-elif options.verb == TRAIN_VERB:
+elif options.verb == "train":
 
-    nnm.train_nn(options.hdf5_file_name, options.checkpoint_dir,
-                 options.log_dir, options.n_threads, n_epochs=options.n_epochs)
+    nnm.train(options.hdf5_file, options.pickle_file, options.log_dir,
+              options.n_threads, options.n_epochs)
+
+elif options.verb == "compose":
+
+    nnm.compose(options.pickle_file, options.audio_file, options.duration,
+                options.hdf5_file, options.sample_rate)
 
 else:
 
