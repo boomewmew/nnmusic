@@ -75,7 +75,11 @@ help = format_help("Number of training epochs.", ("train",))
 parser.add_argument("-N", "--n-epochs", default=nnm.DEFAULT_EPOCHS, type=int,
                     help=help)
 
-help = format_help("File containing neural-net state.", ("train", "compose"))
+help = format_help("File containing neural-net model.", ("train", "compose"))
+parser.add_argument("-m", "--model-file", default="nn.model", help=help)
+
+help = format_help("File containing auxiliary components of neural-net state.",
+                   ("train", "compose"))
 parser.add_argument("-p", "--pickle-file", default="nn.pickle", help=help)
 
 help = format_help("Audio file to write to.", ("compose",))
@@ -94,13 +98,13 @@ if options.verb == "convert":
 
 elif options.verb == "train":
 
-    nnm.train(options.hdf5_file, options.pickle_file, options.log_dir,
-              options.n_threads, options.n_epochs)
+    nnm.train(options.hdf5_file, options.model_file, options.pickle_file,
+              options.log_dir, options.n_threads, options.n_epochs)
 
 elif options.verb == "compose":
 
-    nnm.compose(options.pickle_file, options.audio_file, options.duration,
-                options.hdf5_file, options.sample_rate)
+    nnm.compose(options.model_file, options.pickle_file, options.audio_file,
+                options.duration, options.hdf5_file, options.sample_rate)
 
 else:
 

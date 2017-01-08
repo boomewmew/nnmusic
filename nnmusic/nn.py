@@ -62,44 +62,58 @@ class Composer:
 
     _CUCUMBER_NAMES = __init__.__code__.co_varnames[1:]
 
-    def pickle(self, pickle_file_name):
-        """Store Composer state in pickle file.
+    def save(self, model_file_name, pickle_file_name):
+        """Store Composer state.
         
         The Composer object is not actually pickleable because its _generator
-        attribute is not pickleable. Instead, enough information is pickled in
-        the form of simpler objects that the Composer state can be restored
-        from these objects later.
+        attribute is not pickleable. Instead, the model state is stored in a
+        model file, and other information required to restore the Composer
+        state is pickled.
         
         Keyword argument:
-            pickle_file_name -- Pickle file to serialize data into.
+            model_file_name  -- Name of file to write neural net model into.
+            pickle_file_name -- Name of file to serialize auxiliary data into.
         """
-        _io.print_now(
-            "Writing neural-net state to file {}.".format(pickle_file_name)
+        message = "Writing neural-net state to files {} and {}.".format(
+            model_file_name, pickle_file_name
         )
+        _io.print_now(message)
         
         with open(pickle_file_name, "wb") as f:
             for o in self._cucumbers:
                 _pickle.dump(o, f)
     
-    @staticmethod
-    def unpickle(pickle_file_name):
-        """Load Composer from pickle file.
+        with open(model_file_name, "wb") as f:
+            self._generator.save(f)
         
-        The necessary objects to restore the state of the Composer are
-        deserialized from the file and used to construct the Composer object.
+    @staticmethod
+    def load(model_file_name, pickle_file_name):
+        """Load Composer from model and pickle files.
+        
+        The model state is loaded from the model file, and the other necessary
+        objects to restore the state of the Composer are deserialized from the
+        pickle file and used to construct the Composer object.
         
         Keyword argument:
-            pickle_file_name -- File to load state from.
+            model_file_name  -- Name of model file.
+            pickle_file_name -- Name of pickle file.
         
         Return value:
             The Composer.
         """
-        _io.print_now(
-            "Reading neural-net state from file {}.".format(pickle_file_name)
+        message = "Reading neural-net state from files {} and {}.".format(
+            model_file_name, pickle_file_name
         )
+        _io.print_now(message)
         
         with open(pickle_file_name, "rb") as f:
-            return Composer(_pickle.load(f) for s in Composer._CUCUMBER_NAMES)
+            composer = Composer(_pickle.load(f)
+                                for s in Composer._CUCUMBER_NAMES)
+            
+        with open(model_file_name, "rb") as f:
+            composer.load(f)
+        
+        return composer
         
     def train(self, dataset, n_epochs=DEFAULT_EPOCHS):
         """Train the contained neural net.
@@ -131,14 +145,15 @@ class Composer:
         
         return self._generator.generate(duration, seq_seed=seed)
 
-def train(hdf5_file_name, pickle_file_name, log_dir, n_threads=DEFAULT_THREADS,
-          n_epochs=DEFAULT_EPOCHS):
+def train(hdf5_file_name, model_file_name, pickle_file_name, log_dir,
+          n_threads=DEFAULT_THREADS, n_epochs=DEFAULT_EPOCHS):
     """Train an LSTM recurrent neural network for writing music.
     
     Keyword arguments:
         hdf5_file_name   -- Name of HDF5 file containing audio data for
                             training.
-        pickle_file_name -- Name of file for pickling generator.
+        model_file_name  -- Name of file to store model weights in.
+        pickle_file_name -- Name of file for pickling generator attributes.
         log_dir          -- Directory for writing logs.
         n_threads        -- Number of threads to run.
         n_epochs         -- Number of training epochs.
@@ -158,13 +173,14 @@ def train(hdf5_file_name, pickle_file_name, log_dir, n_threads=DEFAULT_THREADS,
                             data_shape[2])
         composer.train(dataset, n_epochs)
         
-    composer.pickle(pickle_file_name)
+    composer.save(model_file_name, pickle_file_name)
 
-def compose(pickle_file_name, audio_file_name, duration, hdf5_file_name,
-            sample_rate=_io.DEFAULT_RATE):
+def compose(model_file_name, pickle_file_name, audio_file_name, duration,
+            hdf5_file_name, sample_rate=_io.DEFAULT_RATE):
     """Compose a piece of music and write the result to an audio file.
     
     Keyword arguments:
+        model_file_name  -- Name of file to write neural-net state into.
         pickle_file_name -- Name of file for pickling generator.
         audio_file_name  -- Output audio file to write music into.
         duration         -- Number of time steps of composed music.
@@ -177,7 +193,7 @@ def compose(pickle_file_name, audio_file_name, duration, hdf5_file_name,
     )
     _io.print_now(message)
     
-    composer = Composer.unpickle(pickle_file_name)
+    composer = Composer.load(model_file_name, pickle_file_name)
     
     with _h5py.File(hdf5_file_name, "r") as f:
         _io.write_audio(
