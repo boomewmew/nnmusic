@@ -16,15 +16,10 @@
 
 # Address correspondence about this library to boomewmew@gmail.com.
 
-"""Type aliases."""
+"""Default parameter values."""
 
-import numpy      as _np
-import tensorflow as _tf
+DEFAULT_RATE     = 44100
+DEFAULT_CHANNELS = 2
 
-tensor_size        = _tf.int64
-size_list          = _tf.train.Int64List
-SIZE_LIST_ARG_NAME = "int64_list"
-
-amplitude        = _np.float64
-tensor_amplitude = _tf.float64
-to_amplitude     = _tf.to_double
+DEFAULT_EPOCHS  = 1
+DEFAULT_THREADS = 1

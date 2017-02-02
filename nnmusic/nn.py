@@ -18,186 +18,76 @@
 
 """Composes music using a neural net."""
 
-import h5py          as _h5py
-import nnmusic.io    as _io
-import nnmusic.types as _types
-import pickle        as _pickle
-import random        as _random
-import tensorflow    as _tf
-import tflearn       as _tfl
-import time          as _time
+import nnmusic.defaults as _defaults
+import nnmusic.types    as _types
+import nnmusic.io       as _io
+import tensorflow       as _tf
 
-DEFAULT_EPOCHS  = 5000
-DEFAULT_THREADS = 1
+N_HIDDEN   = 24
+BATCH_SIZE = 100
 
-class Composer:
-    """Uses LSTM neural net to compose music."""
+def train(records_file_name, n_epochs=_defaults.DEFAULT_EPOCHS,
+          n_batch_threads=_defaults.DEFAULT_THREADS,
+          n_train_threads=_defaults.DEFAULT_THREADS):
+    """Train a neural net."""
+    file_name, audio_data = _io.read_record(records_file_name, n_epochs)
     
-    def __init__(self, dictionary, log_dir, chunk_size=_io.DEFAULT_CHUNK_SIZE,
-                 n_channels=_io.DEFAULT_CHANNELS):
-        """Constructor.
-        
-        Keyword arguments:
-            dictionary -- Dictionary mapping each amplitude value from the
-                          dataset to a unique integer.
-            log_dir    -- Directory for log files.
-            chunk_size -- Number of time steps per chunk.
-            n_channels -- Number of audio channels.
-        """
-        _io.print_now("Initializing neural net.")
-        
-        net = _tfl.input_data((None, chunk_size, n_channels),
-                              dtype=_types.tensor_amplitude)
-        net = _tfl.lstm(net, n_channels, return_seq=True)
-        net = _tf.pack(net, 1)
-        net = _tfl.regression(net, loss=_tfl.mean_square, metric=_tfl.R2(),
-                              dtype=_types.tensor_amplitude)
-                              
-        local_dict = locals()
-
-        self._generator = _tfl.SequenceGenerator(net, dictionary, chunk_size,
-                                                 tensorboard_verbose=3,
-                                                 tensorboard_dir=log_dir)
-        self._cucumbers = [local_dict[s] for s in self._CUCUMBER_NAMES]
-
-    _CUCUMBER_NAMES = __init__.__code__.co_varnames[1:]
-
-    def save(self, model_file_name, pickle_file_name):
-        """Store Composer state.
-        
-        The Composer object is not actually pickleable because its _generator
-        attribute is not pickleable. Instead, the model state is stored in a
-        model file, and other information required to restore the Composer
-        state is pickled.
-        
-        Keyword argument:
-            model_file_name  -- Name of file to write neural net model into.
-            pickle_file_name -- Name of file to serialize auxiliary data into.
-        """
-        message = "Writing neural-net state to files {} and {}.".format(
-            model_file_name, pickle_file_name
-        )
-        _io.print_now(message)
-        
-        with open(pickle_file_name, "wb") as f:
-            for o in self._cucumbers:
-                _pickle.dump(o, f)
+    cell = _tf.nn.rnn_cell.LSTMCell(N_HIDDEN)
     
-        with open(model_file_name, "wb") as f:
-            self._generator.save(f)
-        
-    @staticmethod
-    def load(model_file_name, pickle_file_name):
-        """Load Composer from model and pickle files.
-        
-        The model state is loaded from the model file, and the other necessary
-        objects to restore the state of the Composer are deserialized from the
-        pickle file and used to construct the Composer object.
-        
-        Keyword argument:
-            model_file_name  -- Name of model file.
-            pickle_file_name -- Name of pickle file.
-        
-        Return value:
-            The Composer.
-        """
-        message = "Reading neural-net state from files {} and {}.".format(
-            model_file_name, pickle_file_name
-        )
-        _io.print_now(message)
-        
-        with open(pickle_file_name, "rb") as f:
-            composer = Composer(_pickle.load(f)
-                                for s in Composer._CUCUMBER_NAMES)
-            
-        with open(model_file_name, "rb") as f:
-            composer.load(f)
-        
-        return composer
-        
-    def train(self, dataset, n_epochs=DEFAULT_EPOCHS):
-        """Train the contained neural net.
-        
-        Keyword arguments:
-            dataset  -- Training data. Array of amplitudes. Shape is
-                        (n_chunks, n_time_steps, n_channels).
-            n_epochs -- Number of training epochs.
-        """
-        _io.print_now("Training neural net.")
-        
-        self._generator.fit(dataset[:, :-1, :], dataset[:, 1:, :], n_epochs,
-                            validation_set=0.5, show_metric=True,
-                            run_id=_time.strftime("%Y-%m-%d-%H:%M:%S"))
-
-    def compose(self, duration, seed):
-        """Compose a piece of music using the neural net.
-        
-        Keyword arguments:
-            duration -- Number of time steps to compose for.
-            seed     -- Seed sequence. Array of amplitudes. Shape is
-                        (n_time_steps, n_channels).
-
-        Return value:
-            The composition. Array of amplitudes. Shape is
-            (duration, n_channels).
-        """
-        _io.print_now("Composing.")
-        
-        return self._generator.generate(duration, seq_seed=seed)
-
-def train(hdf5_file_name, model_file_name, pickle_file_name, log_dir,
-          n_threads=DEFAULT_THREADS, n_epochs=DEFAULT_EPOCHS):
-    """Train an LSTM recurrent neural network for writing music.
-    
-    Keyword arguments:
-        hdf5_file_name   -- Name of HDF5 file containing audio data for
-                            training.
-        model_file_name  -- Name of file to store model weights in.
-        pickle_file_name -- Name of file for pickling generator attributes.
-        log_dir          -- Directory for writing logs.
-        n_threads        -- Number of threads to run.
-        n_epochs         -- Number of training epochs.
-    """
-    _io.print_now("Reading training data from file {}.".format(hdf5_file_name))
-    
-    with _h5py.File(hdf5_file_name, "r") as f:
-        dataset    = f[_io.DATASET_NAME]
-        data_shape = dataset.shape
-        
-        dictionary = {
-            x: i
-            for i, x in enumerate({y for a in dataset for b in a for y in b})
-        }
-        
-        composer = Composer(dictionary, log_dir, data_shape[1] - 1,
-                            data_shape[2])
-        composer.train(dataset, n_epochs)
-        
-    composer.save(model_file_name, pickle_file_name)
-
-def compose(model_file_name, pickle_file_name, audio_file_name, duration,
-            hdf5_file_name, sample_rate=_io.DEFAULT_RATE):
-    """Compose a piece of music and write the result to an audio file.
-    
-    Keyword arguments:
-        model_file_name  -- Name of file to write neural-net state into.
-        pickle_file_name -- Name of file for pickling generator.
-        audio_file_name  -- Output audio file to write music into.
-        duration         -- Number of time steps of composed music.
-        hdf5_file_name   -- HDF5 file from which a random chunk will be
-                            selected as a seed.
-        sample_rate      -- Sampling frequency in Hz.
-    """
-    message = "Seeding composition with random chunk from file {}.".format(
-        hdf5_file_name
+    batch = _tf.contrib.training.batch_sequences_with_states(
+        file_name, {"audio_data": audio_data}, {}, None, {
+            "lstm_state" : _tf.zeros(cell.state_size[0],
+                                     dtype=_types.tensor_amplitude),
+            "lstm_hidden": _tf.zeros(cell.state_size[1],
+                                     dtype=_types.tensor_amplitude)
+        }, 10000, BATCH_SIZE, n_batch_threads, BATCH_SIZE
     )
-    _io.print_now(message)
     
-    composer = Composer.load(model_file_name, pickle_file_name)
+    n_channels = audio_data.get_shape()[1]
     
-    with _h5py.File(hdf5_file_name, "r") as f:
-        _io.write_audio(
-            audio_file_name,
-            composer.compose(duration, _random.choice(f[_io.DATASET_NAME])),
-            sample_rate
+    batched_data = _tf.unpack(batch.sequences["audio_data"])
+    
+    output = _tf.concat(
+        0, _tf.nn.state_saving_rnn(cell, batched_data, state_saver=batch,
+                                   state_name=("lstm_state", "lstm_hidden"))[0]
+    )[:-1, :]
+    
+    rms_error = _tf.sqrt(
+        _tf.reduce_sum(
+            _tf.squared_difference(
+                _tf.matmul(
+                    output, _tf.Variable(
+                        _tf.truncated_normal(
+                            (N_HIDDEN, n_channels),
+                            dtype=_types.tensor_amplitude
+                        ), dtype=_types.tensor_amplitude
+                    )
+                ) + _tf.tile(
+                    _tf.Variable(
+                        _tf.constant(0.0, shape=(1, n_channels),
+                                     dtype=_types.tensor_amplitude),
+                        dtype=_types.tensor_amplitude
+                    ), (output.get_shape()[0], 1)
+                ), _tf.concat(0, batched_data)[1:, :]
+            )
         )
+    )
+
+    minimize = _tf.train.AdamOptimizer().minimize(rms_error)
+    
+    saver = _tf.train.Saver()
+    
+    with _tf.Session(
+        config=_tf.ConfigProto(intra_op_parallelism_threads=n_train_threads)
+    ) as s:
+        s.run(_tf.initialize_all_variables())
+        
+        coord   = _tf.train.Coordinator()
+        threads = _tf.start_queue_runners(sess=s, coord=coord)
+        
+        while not coord.should_stop():
+            _io.print_now("RMS error = "
+                          "{}.".format(s.run([minimize, rms_error])[1]))
+
+        coord.request_stop()
+        coord.join(threads)

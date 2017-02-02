@@ -18,22 +18,12 @@
 
 """Performs reading and writing of audio files and log formatting."""
 
-import h5py          as _h5py
-import math          as _math
-import nnmusic.types as _types
-import numpy         as _np
-import os            as _os
-import soundfile     as _sf
-import sys           as _sys
-
-DEFAULT_RATE     = 44100
-DEFAULT_CHANNELS = 2
-
-DATASET_NAME = "audio_data"
-
-DEFAULT_CHUNK_SIZE = 1000
-
-PAD_AMPLITUDE = _types.amplitude(0.)
+import nnmusic.defaults as _defaults
+import nnmusic.types    as _types
+import os               as _os
+import soundfile        as _sf
+import sys              as _sys
+import tensorflow       as _tf
 
 class ANSICodeError(Exception):
     """Exception indicating an unknown ANSI color code."""
@@ -59,7 +49,7 @@ class ANSICode:
         
         Keyword argument:
             color  -- Name of desired color or None.
-            bg     -- Boolean value. True indicates background color.
+            bg     -- Boolean value.  True indicates background color.
         
         Return value:
             The integer color code.
@@ -91,7 +81,7 @@ class ANSICode:
             inverse       -- Turn on/off inverting of foreground and background
                              colors.
             strikethrough -- Turn on/off strikethrough.
-            reset         -- Reset to default style. All other options are
+            reset         -- Reset to default style.  All other options are
                              ignored.
         """
         self._reset = reset
@@ -229,9 +219,8 @@ class InvalidFileError(Exception):
     
     def __str__(self):
         """Error message."""
-        return wrap_err(
-            "File {} is not a valid audio file.".format(self.file_name)
-        )
+        return wrap_err("File {} is not a valid audio "
+                        "file.".format(self.file_name))
 
 class SampleRateError(Exception):
     """Exception indicating unexpected sample rate.
@@ -250,10 +239,10 @@ class SampleRateError(Exception):
         
     def __str__(self):
         """Error message."""
-        message = "File {} has sample rate {} Hz. Expected {} Hz.".format(
-            self.file_name, self.sample_rate, self.expected_rate
+        return wrap_err(
+            "File {} has sample rate {} Hz.  Expected {} "
+            "Hz.".format(self.file_name, self.sample_rate, self.expected_rate)
         )
-        return wrap_err(message)
 
 class ChannelError(Exception):
     """Exception indicating bad number of channels.
@@ -271,13 +260,14 @@ class ChannelError(Exception):
     
     def __str__(self):
         """Error message."""
-        message = "File {} has {} channels. Expected {}.".format(
-            self.file_name, self.n_channels, self.expected_channels
+        return wrap_err(
+            "File {} has {} channels.  Expected "
+            "{}.".format(self.file_name, self.n_channels,
+                         self.expected_channels)
         )
-        return wrap_err(message)
 
-def read_audio(file_name, expected_rate=DEFAULT_RATE,
-               expected_channels=DEFAULT_CHANNELS):
+def read_audio(file_name, expected_rate=_defaults.DEFAULT_RATE,
+               expected_channels=_defaults.DEFAULT_CHANNELS):
     """Read an audio file and return the data as an array.
     
     Keyword arguments:
@@ -288,7 +278,7 @@ def read_audio(file_name, expected_rate=DEFAULT_RATE,
                              channels differing from this value.
     
     Return value:
-        A 2D array of amplitudes. The zeroth index runs over time steps. The
+        A 2D array of amplitudes.  The zeroth index runs over time steps.  The
         first runs over audio channels.
     """
     if not _os.path.exists(file_name):
@@ -311,8 +301,8 @@ def read_audio(file_name, expected_rate=DEFAULT_RATE,
     
     return data
 
-def read_audio_no_throw(file_name, expected_rate=DEFAULT_RATE,
-                        expected_channels=DEFAULT_CHANNELS):
+def read_audio_no_throw(file_name, expected_rate=_defaults.DEFAULT_RATE,
+                        expected_channels=_defaults.DEFAULT_CHANNELS):
     """Read an audio file and return the data as an array, ignoring exceptions.
     
     If the file cannot be opened or has an invalid sample rate or number of
@@ -327,99 +317,135 @@ def read_audio_no_throw(file_name, expected_rate=DEFAULT_RATE,
     
     Return value:
         If the file is read successfully, a 2D array of amplitudes is returned.
-        The zeroth index runs over time steps. The first runs over audio
+        The zeroth index runs over time steps.  The first runs over audio
         channels.
         
         If the read fails, None is returned.
     """
     try:
-
         return read_audio(file_name, expected_rate, expected_channels)
-
     except SoundFileNotFoundError:
-
-        print_warn_now("File {} does not exist. Skipping.".format(file_name))
-
+        print_warn_now("File {} does not exist.  Skipping.".format(file_name))
     except InvalidFileError:
-
-        print_warn_now(
-            "File {} could not be read. Skipping.".format(file_name)
-        )
-
+        print_warn_now("File {} could not be read.  "
+                       "Skipping.".format(file_name))
     except SampleRateError as e:
-
-        message = ("File {} has sample rate {} Hz. Expected {} Hz. "
-            "Skipping.".format(file_name, e.sample_rate, expected_rate))
-        print_warn_now(message)
-
-    except ChannelError as e:
-
-        message = "File {} has {} channels. Expected {}. Skipping.".format(
-            file_name, e.n_channels, expected_channels
+        print_warn_now(
+            "File {} has sample rate {} Hz.  Expected {} Hz.  "
+            "Skipping.".format(file_name, e.sample_rate, expected_rate)
         )
-        print_warn_now(message)
+    except ChannelError as e:
+        print_warn_now(
+            "File {} has {} channels.  Expected {}.  "
+            "Skipping.".format(file_name, e.n_channels, expected_channels)
+        )
 
-    return None
-
-def write_audio(file_name, data, sample_rate=DEFAULT_RATE):
+def write_audio(file_name, data, sample_rate=_defaults.DEFAULT_RATE):
     """Write an audio file.
     
     Keyword arguments:
         file_name   -- Name of output file.
-        data        -- A 2D array of amplitudes. The zeroth index runs over
-                       time steps. The first runs over audio channels.
+        data        -- A 2D array of amplitudes.  The zeroth index runs over
+                       time steps.  The first runs over audio channels.
         sample_rate -- Sample rate in Hz.
     """
     print_now("Writing file {}.".format(file_name))
     
     _sf.write(file_name, data, sample_rate)
 
-def audio_to_hdf5(in_dir, out_file_name, chunk_size=DEFAULT_CHUNK_SIZE,
-                  expected_rate=DEFAULT_RATE,
-                  expected_channels=DEFAULT_CHANNELS):
-    """Convert all audio files in a directory to a single HDF5 file.
+def _make_size_feature(size):
+    """Construct a TFRecords feature representing a size.
     
-    Audio files are cut into chunks of size chunk_size. The last chunk from
-    each file is padded with zeros.
+    Keyword argument:
+        size -- The value.
+    
+    Return value:
+        The feature object.
+    """
+    return _tf.train.Feature(
+        **{_types.SIZE_LIST_ARG_NAME: _types.size_list(value=(size,))}
+    )
+
+def _make_bytes_feature(bytestring): 
+    """Construct a TFRecords feature representing raw data.
+    
+    Keyword argument:
+        bytestring -- The data.
+    
+    Return value:
+        The feature object.
+    """
+    return _tf.train.Feature(
+        bytes_list=_tf.train.BytesList(value=(bytestring,))
+    )
+
+def audio_to_records(audio_dir, records_file_name,
+                     expected_rate=_defaults.DEFAULT_RATE,
+                     expected_channels=_defaults.DEFAULT_CHANNELS):
+    """Convert several audio files to a TFRecords file.
     
     Keyword arguments:
-        in_dir            -- Directory to read from.
-        out_file_name     -- Name of output HDF5 file.
-        chunk_size        -- Number of time steps in each chunk.
-        expected_rate     -- Throws exception if file's sample rate in Hz
-                             differs from this value.
-        expected_channels -- Throws exception if file contains number of
-                             channels differing from this value.
+        audio_dir         -- Directory containing audio files.
+        records_file_name -- Name of TFRecords file to write.
+        expected_rate     -- Expected sample rate in Hz.
+        expected_channels -- Expected number of audio channels.
     """
-    message = "Converting audio files in directory {} to HDF5 file {}.".format(
-        in_dir, out_file_name
-    )
-    print_now(message)
+    print_now("Converting audio files in directory {} to TFRecords file "
+              "{}".format(audio_dir, records_file_name))
     
-    usable = []
-    for s in _os.listdir(in_dir):
-        file_name = _os.path.join(in_dir, s)
-        data = read_audio_no_throw(file_name, expected_rate, expected_channels)
-        
-        if data is None:
-            continue
-        
-        usable.append(file_name, _math.ceil(data.shape[0] / chunk_size))
+    with _tf.python_io.TFRecordWriter(records_file_name) as w:
+        for s in _os.listdir(audio_dir):
+            file_name   = _os.path.join(audio_dir, s)
+            audio_data  = read_audio(file_name, expected_rate,
+                                     expected_channels)
+            audio_shape = audio_data.shape
+            w.write(
+                _tf.train.Example(
+                    features=_tf.train.Features(
+                        feature={
+                            "file_name": _make_bytes_feature(
+                                file_name
+                            ),
+                            "duration": _make_size_feature(
+                                audio_shape[0]
+                            ),
+                            "n_channels": _make_size_feature(
+                                audio_shape[1]
+                            ),
+                            "audio_bytes": _make_bytes_feature(
+                                audio_data.tostring()
+                            )
+                        }
+                    )
+                ).SerializeToString()
+            )
 
-    with _h5py.File(out_file_name, "w") as f:
-        dataset = f.create_dataset(
-            DATASET_NAME,
-            (sum((t[1] for t in usable)), chunk_size, expected_channels),
-            dtype=_types.amplitude
-        )
-        
-        for s, n in usable:
-            data = read_audio(s, expected_rate, expected_channels)
-            for i in range(n):
-                chunk      = data[i * chunk_size:(i + 1) * chunk_size, :]
-                dataset[i] = _np.pad(
-                    chunk, ((0, chunk_size - chunk.shape[0]), (0, 0)),
-                    "constant", constant_values=PAD_AMPLITUDE
-                )
+def read_record(records_file_name, n_epochs=_defaults.DEFAULT_EPOCHS):
+    """Read a record from a TFRecords file.
     
-    print_now("Wrote file {}.".format(out_file_name))
+    Keyword arguments:
+        records_file_name -- TFRecords file to read.
+        n_epochs          -- Number of training epochs.
+    
+    Return value:
+        A tuple whose zeroth element is the name of the original sound file
+        used to produce the example and whose first element is a 2D array of
+        amplitudes with shape (duration, n_channels).
+    """
+    features = _tf.parse_single_example(
+        _tf.TFRecordReader().read(
+            _tf.train.string_input_producer([records_file_name],
+                                            num_epochs=n_epochs)
+        )[1],
+        features={"file_name"  : _tf.FixedLenFeature((), _tf.string        ),
+                  "duration"   : _tf.FixedLenFeature((), _types.tensor_size),
+                  "n_channels" : _tf.FixedLenFeature((), _types.tensor_size),
+                  "audio_bytes": _tf.VarLenFeature(_types.tensor_amplitude)}
+    )
+
+    return (
+        features["file_name"],
+        _np.array(features["audio_bytes"]).reshape(
+            (features["duration"], features["n_channels"])
+        )
+    )
