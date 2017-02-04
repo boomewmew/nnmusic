@@ -111,9 +111,8 @@ if options.verb == "convert":
 
 elif options.verb == "train":
 
-    nnm.train(options.records_file_name, options.state_file_name,
-              options.n_epochs, options.n_batch_threads,
-              options.n_train_threads)
+    nnm.train(options.records_file, options.state_file, options.n_epochs,
+              options.n_batch_threads, options.n_train_threads)
 
 else:
 
