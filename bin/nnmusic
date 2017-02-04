@@ -88,7 +88,7 @@ parser.add_argument(
 )
 
 parser.add_argument(
-    "-S", "--state-file-name", default="state.ckpt",
+    "-S", "--state-file", default="state.ckpt",
     help=format_help("File containing neural-net state.", ("train", "compose"))
 )
 
