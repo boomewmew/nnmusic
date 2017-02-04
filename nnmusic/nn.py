@@ -26,10 +26,21 @@ import tensorflow       as _tf
 N_HIDDEN   = 24
 BATCH_SIZE = 100
 
-def train(records_file_name, n_epochs=_defaults.DEFAULT_EPOCHS,
+def train(records_file_name, state_file_name,
+          n_epochs=_defaults.DEFAULT_EPOCHS,
           n_batch_threads=_defaults.DEFAULT_THREADS,
           n_train_threads=_defaults.DEFAULT_THREADS):
-    """Train a neural net."""
+    """Train a neural net.
+    
+    Keyword arguments:
+        records_file_name -- Name of TFRecords file containing training
+                             examples.
+        state_file_name   -- Name of file to write neural-net state to.
+        n_epochs          -- Number of training epochs.
+        n_batch_threads   -- Number of threads for enqueueing training
+                             examples.
+        n_train_threads   -- Number of threads for executing training ops.
+    """
     file_name, audio_data = _io.read_record(records_file_name, n_epochs)
     
     cell = _tf.nn.rnn_cell.LSTMCell(N_HIDDEN)
@@ -91,3 +102,5 @@ def train(records_file_name, n_epochs=_defaults.DEFAULT_EPOCHS,
 
         coord.request_stop()
         coord.join(threads)
+
+        saver.save(s, state_file_name)

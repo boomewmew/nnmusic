@@ -88,6 +88,11 @@ parser.add_argument(
 )
 
 parser.add_argument(
+    "-S", "--state-file-name", default="state.ckpt",
+    help=format_help("File containing neural-net state.", ("train", "compose"))
+)
+
+parser.add_argument(
     "-A", "--audio-file", default="audio.wav",
     help=format_help("Audio file to write to.", ("compose",))
 )
@@ -106,8 +111,9 @@ if options.verb == "convert":
 
 elif options.verb == "train":
 
-    nnm.train(options.records_file_name, options.n_epochs,
-              options.n_batch_threads, options.n_train_threads)
+    nnm.train(options.records_file_name, options.state_file_name,
+              options.n_epochs, options.n_batch_threads,
+              options.n_train_threads)
 
 else:
 
