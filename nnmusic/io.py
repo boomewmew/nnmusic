@@ -25,6 +25,8 @@ import soundfile        as _sf
 import sys              as _sys
 import tensorflow       as _tf
 
+STR_ENCODING = "utf-8"
+
 class ANSICodeError(Exception):
     """Exception indicating an unknown ANSI color code."""
     
@@ -366,6 +368,23 @@ def _make_size_feature(size):
         **{_types.SIZE_LIST_ARG_NAME: _types.size_list(value=(size,))}
     )
 
+def _make_amplitude_arr_feature(arr):
+    """Construct a TFRecords feature representing an array of amplitudes.
+    
+    Keyword argument:
+        arr -- A 1D array of amplitudes.
+    
+    Return value:
+       The feature object. 
+    """
+    return _tf.train.Feature(
+        **{
+            _types.AMPLITUDE_LIST_ARG_NAME: _types.amplitude_list(
+                value=tuple(arr.flat)
+            )
+        }
+    )
+
 def _make_bytes_feature(bytestring): 
     """Construct a TFRecords feature representing raw data.
     
@@ -395,16 +414,16 @@ def audio_to_records(audio_dir, records_file_name,
     
     with _tf.python_io.TFRecordWriter(records_file_name) as w:
         for s in _os.listdir(audio_dir):
-            file_name   = _os.path.join(audio_dir, s)
-            audio_data  = read_audio(file_name, expected_rate,
-                                     expected_channels)
+            file_name  = _os.path.join(audio_dir, s)
+            audio_data = read_audio(file_name, expected_rate,
+                                    expected_channels)
             audio_shape = audio_data.shape
             w.write(
                 _tf.train.Example(
                     features=_tf.train.Features(
                         feature={
                             "file_name": _make_bytes_feature(
-                                file_name
+                                file_name.encode(STR_ENCODING)
                             ),
                             "duration": _make_size_feature(
                                 audio_shape[0]
@@ -412,8 +431,8 @@ def audio_to_records(audio_dir, records_file_name,
                             "n_channels": _make_size_feature(
                                 audio_shape[1]
                             ),
-                            "audio_bytes": _make_bytes_feature(
-                                audio_data.tostring()
+                            "audio_bytes": _make_amplitude_arr_feature(
+                                audio_data
                             )
                         }
                     )
@@ -440,12 +459,12 @@ def read_record(records_file_name, n_epochs=_defaults.DEFAULT_EPOCHS):
         features={"file_name"  : _tf.FixedLenFeature((), _tf.string        ),
                   "duration"   : _tf.FixedLenFeature((), _types.tensor_size),
                   "n_channels" : _tf.FixedLenFeature((), _types.tensor_size),
-                  "audio_bytes": _tf.VarLenFeature(_types.tensor_amplitude)}
+                  "audio_bytes": _tf.VarLenFeature(_tf.amplitude)}
     )
 
     return (
         features["file_name"],
-        _np.array(features["audio_bytes"]).reshape(
+        features["audio_bytes"].reshape(
             (features["duration"], features["n_channels"])
         )
     )

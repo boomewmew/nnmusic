@@ -25,6 +25,8 @@ tensor_size        = _tf.int64
 size_list          = _tf.train.Int64List
 SIZE_LIST_ARG_NAME = "int64_list"
 
-amplitude        = _np.float64
-tensor_amplitude = _tf.float64
-to_amplitude     = _tf.to_double
+amplitude               = _np.float32
+tensor_amplitude        = _tf.float32
+to_amplitude            = _tf.to_float
+amplitude_list          = _tf.train.FloatList
+AMPLITUDE_LIST_ARG_NAME = "float_list"
