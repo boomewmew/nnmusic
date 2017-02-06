@@ -68,7 +68,7 @@ parser.add_argument(
 parser.add_argument(
     "-N", "--n-channels", default=nnm.DEFAULT_CHANNELS, type=int,
     help=format_help("Expected number of audio channels.",
-                     ("convert", "compose"))
+                     ("convert", "train", "compose"))
 )
 
 parser.add_argument(
@@ -112,7 +112,8 @@ if options.verb == "convert":
 elif options.verb == "train":
 
     nnm.train(options.records_file, options.state_file, options.n_epochs,
-              options.n_batch_threads, options.n_train_threads)
+              options.n_channels, options.n_batch_threads,
+              options.n_train_threads)
 
 else:
 

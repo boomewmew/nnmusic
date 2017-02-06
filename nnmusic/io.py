@@ -410,14 +410,14 @@ def audio_to_records(audio_dir, records_file_name,
         expected_channels -- Expected number of audio channels.
     """
     print_now("Converting audio files in directory {} to TFRecords file "
-              "{}".format(audio_dir, records_file_name))
+              "{}.".format(audio_dir, records_file_name))
     
     with _tf.python_io.TFRecordWriter(records_file_name) as w:
         for s in _os.listdir(audio_dir):
             file_name  = _os.path.join(audio_dir, s)
             audio_data = read_audio(file_name, expected_rate,
                                     expected_channels)
-            audio_shape = audio_data.shape
+            # audio_shape = audio_data.shape
             w.write(
                 _tf.train.Example(
                     features=_tf.train.Features(
@@ -425,12 +425,12 @@ def audio_to_records(audio_dir, records_file_name,
                             "file_name": _make_bytes_feature(
                                 file_name.encode(STR_ENCODING)
                             ),
-                            "duration": _make_size_feature(
-                                audio_shape[0]
-                            ),
-                            "n_channels": _make_size_feature(
-                                audio_shape[1]
-                            ),
+                            # "duration": _make_size_feature(
+                            #     audio_shape[0]
+                            # ),
+                            # "n_channels": _make_size_feature(
+                            #     audio_shape[1]
+                            # ),
                             "audio_bytes": _make_amplitude_arr_feature(
                                 audio_data
                             )
@@ -439,32 +439,36 @@ def audio_to_records(audio_dir, records_file_name,
                 ).SerializeToString()
             )
 
-def read_record(records_file_name, n_epochs=_defaults.DEFAULT_EPOCHS):
+def read_record(records_file_name, n_epochs=_defaults.DEFAULT_EPOCHS,
+                n_channels=_defaults.DEFAULT_CHANNELS):
     """Read a record from a TFRecords file.
     
     Keyword arguments:
         records_file_name -- TFRecords file to read.
         n_epochs          -- Number of training epochs.
+        n_channels        -- Number of audio channels.
     
     Return value:
         A tuple whose zeroth element is the name of the original sound file
         used to produce the example and whose first element is a 2D array of
         amplitudes with shape (duration, n_channels).
     """
+    print_now("Reading audio data from TFRecords file "
+              "{}.".format(records_file_name))
+    
     features = _tf.parse_single_example(
         _tf.TFRecordReader().read(
             _tf.train.string_input_producer([records_file_name],
                                             num_epochs=n_epochs)
         )[1],
         features={"file_name"  : _tf.FixedLenFeature((), _tf.string        ),
-                  "duration"   : _tf.FixedLenFeature((), _types.tensor_size),
-                  "n_channels" : _tf.FixedLenFeature((), _types.tensor_size),
-                  "audio_bytes": _tf.VarLenFeature(_tf.amplitude)}
+                  # "duration"   : _tf.FixedLenFeature((), _types.tensor_size),
+                  # "n_channels" : _tf.FixedLenFeature((), _types.tensor_size),
+                  "audio_bytes": _tf.VarLenFeature(_types.amplitude)}
     )
-
+    
     return (
         features["file_name"],
-        features["audio_bytes"].reshape(
-            (features["duration"], features["n_channels"])
-        )
+        _tf.reshape(_tf.sparse_tensor_to_dense(features["audio_bytes"]),
+                    (-1, n_channels))
     )

@@ -28,6 +28,7 @@ BATCH_SIZE = 100
 
 def train(records_file_name, state_file_name,
           n_epochs=_defaults.DEFAULT_EPOCHS,
+          n_channels=_defaults.DEFAULT_CHANNELS,
           n_batch_threads=_defaults.DEFAULT_THREADS,
           n_train_threads=_defaults.DEFAULT_THREADS):
     """Train a neural net.
@@ -37,11 +38,13 @@ def train(records_file_name, state_file_name,
                              examples.
         state_file_name   -- Name of file to write neural-net state to.
         n_epochs          -- Number of training epochs.
+        n_channels        -- Number of audio channels.
         n_batch_threads   -- Number of threads for enqueueing training
                              examples.
         n_train_threads   -- Number of threads for executing training ops.
     """
-    file_name, audio_data = _io.read_record(records_file_name, n_epochs)
+    file_name, audio_data = _io.read_record(records_file_name, n_epochs,
+                                            n_channels)
     
     cell = _tf.nn.rnn_cell.LSTMCell(N_HIDDEN)
     
