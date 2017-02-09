@@ -355,49 +355,6 @@ def write_audio(file_name, data, sample_rate=_defaults.DEFAULT_RATE):
     
     _sf.write(file_name, data, sample_rate)
 
-def _make_size_feature(size):
-    """Construct a TFRecords feature representing a size.
-    
-    Keyword argument:
-        size -- The value.
-    
-    Return value:
-        The feature object.
-    """
-    return _tf.train.Feature(
-        **{_types.SIZE_LIST_ARG_NAME: _types.size_list(value=(size,))}
-    )
-
-def _make_amplitude_arr_feature(arr):
-    """Construct a TFRecords feature representing an array of amplitudes.
-    
-    Keyword argument:
-        arr -- A 1D array of amplitudes.
-    
-    Return value:
-       The feature object. 
-    """
-    return _tf.train.Feature(
-        **{
-            _types.AMPLITUDE_LIST_ARG_NAME: _types.amplitude_list(
-                value=tuple(arr.flat)
-            )
-        }
-    )
-
-def _make_bytes_feature(bytestring): 
-    """Construct a TFRecords feature representing raw data.
-    
-    Keyword argument:
-        bytestring -- The data.
-    
-    Return value:
-        The feature object.
-    """
-    return _tf.train.Feature(
-        bytes_list=_tf.train.BytesList(value=(bytestring,))
-    )
-
 def audio_to_records(audio_dir, records_file_name,
                      expected_rate=_defaults.DEFAULT_RATE,
                      expected_channels=_defaults.DEFAULT_CHANNELS):
@@ -414,30 +371,19 @@ def audio_to_records(audio_dir, records_file_name,
     
     with _tf.python_io.TFRecordWriter(records_file_name) as w:
         for s in _os.listdir(audio_dir):
-            file_name  = _os.path.join(audio_dir, s)
-            audio_data = read_audio(file_name, expected_rate,
-                                    expected_channels)
-            # audio_shape = audio_data.shape
-            w.write(
-                _tf.train.Example(
-                    features=_tf.train.Features(
-                        feature={
-                            "file_name": _make_bytes_feature(
-                                file_name.encode(STR_ENCODING)
-                            ),
-                            # "duration": _make_size_feature(
-                            #     audio_shape[0]
-                            # ),
-                            # "n_channels": _make_size_feature(
-                            #     audio_shape[1]
-                            # ),
-                            "audio_bytes": _make_amplitude_arr_feature(
-                                audio_data
-                            )
-                        }
-                    )
-                ).SerializeToString()
+            file_name = _os.path.join(audio_dir, s)
+
+            example = _tf.train.SequenceExample()
+            example.context.feature["file_name"].bytes_list.value.append(
+                file_name.encode(STR_ENCODING)
             )
+            audio_data = example.feature_lists.feature_list["audio_data"]
+            for x in read_audio(file_name, expected_rate,
+                                expected_channels).reshape((-1,)):
+                getattr(audio_data.feature.add(),
+                        _types.AMPLITUDE_LIST_ARG_NAME).value.append(x)
+
+            w.write(example.SerializeToString())
 
 def read_record(records_file_name, n_epochs=_defaults.DEFAULT_EPOCHS,
                 n_channels=_defaults.DEFAULT_CHANNELS):
@@ -455,20 +401,20 @@ def read_record(records_file_name, n_epochs=_defaults.DEFAULT_EPOCHS,
     """
     print_now("Reading audio data from TFRecords file "
               "{}.".format(records_file_name))
-    
-    features = _tf.parse_single_example(
-        _tf.TFRecordReader().read(
+
+    context, sequence = _tf.parse_single_sequence_example(
+        serialized=_tf.TFRecordReader().read(
             _tf.train.string_input_producer([records_file_name],
                                             num_epochs=n_epochs)
         )[1],
-        features={"file_name"  : _tf.FixedLenFeature((), _tf.string        ),
-                  # "duration"   : _tf.FixedLenFeature((), _types.tensor_size),
-                  # "n_channels" : _tf.FixedLenFeature((), _types.tensor_size),
-                  "audio_bytes": _tf.VarLenFeature(_types.amplitude)}
+        context_features={
+            "file_name": _tf.FixedLenFeature((), dtype=_tf.string)
+        },
+        sequence_features={
+            "audio_data": _tf.FixedLenSequenceFeature((),
+                                                      dtype=_types.amplitude)
+        }
     )
     
-    return (
-        features["file_name"],
-        _tf.reshape(_tf.sparse_tensor_to_dense(features["audio_bytes"]),
-                    (-1, n_channels))
-    )
+    return (context["file_name"],
+            _tf.reshape(sequence["audio_data"], (-1, n_channels)))
