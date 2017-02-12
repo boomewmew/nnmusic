@@ -63,45 +63,42 @@ def train(records_file_name, state_file_name,
     
     batched_data = batch.sequences["audio_data"]
     
-    weights = _tf.Variable(
-        _tf.truncated_normal((N_HIDDEN, n_channels),
-                             dtype=_types.tensor_amplitude),
-        dtype=_types.tensor_amplitude
-    )
-
-    biases = _tf.Variable(
-        _tf.constant(0.0, shape=(1, n_channels),
-                     dtype=_types.tensor_amplitude),
-        dtype=_types.tensor_amplitude
-    )
-    
     batch_size   = batch.batch_size
     n_time_steps = N_UNROLL * batch_size
-    usable_size  = batch_size - TIME_OFFSET
-    
-    raw_output = _tf.reshape(
-        _tf.stack(
-            _tf.nn.state_saving_rnn(
-                cell, _tf.unstack(batched_data, axis=1), state_saver=batch,
-                state_name=("lstm_state", "lstm_hidden")
-            )[0], 1
-        ), (n_time_steps, N_HIDDEN)
-    )[:-TIME_OFFSET, :]
-    
-    output = _tf.matmul(raw_output, weights) + _tf.tile(biases,
-                                                        (usable_size, 1))
-
-    target = _tf.reshape(batched_data, (n_time_steps, n_channels))[
-        TIME_OFFSET:, :
-    ]
     
     rms_error = _tf.sqrt(
-        _tf.reduce_sum(_tf.squared_difference(output, target))
+        _tf.reduce_sum(
+            _tf.squared_difference(
+                _tf.matmul(
+                    _tf.reshape(
+                        _tf.stack(
+                            _tf.nn.state_saving_rnn(
+                                cell, _tf.unstack(batched_data, axis=1),
+                                state_saver=batch,
+                                state_name=("lstm_state", "lstm_hidden")
+                            )[0], 1
+                        ), (n_time_steps, N_HIDDEN)
+                    )[:-TIME_OFFSET, :],
+                    _tf.Variable(
+                        _tf.truncated_normal((N_HIDDEN, n_channels),
+                                             dtype=_types.tensor_amplitude),
+                        name="weights", dtype=_types.tensor_amplitude
+                    )
+                ) + _tf.tile(
+                    _tf.Variable(
+                        _tf.constant(0.0, shape=(1, n_channels),
+                                     dtype=_types.tensor_amplitude),
+                        name="biases", dtype=_types.tensor_amplitude
+                    ), (batch_size - TIME_OFFSET, 1)
+                ),
+                _tf.reshape(batched_data, (n_time_steps, n_channels))[
+                    TIME_OFFSET:, :
+                ]
+            )
+        )
     )
     
     minimize = _tf.train.AdamOptimizer().minimize(rms_error)
-    
-    saver = _tf.train.Saver()
     
     with _tf.Session(
         config=_tf.ConfigProto(intra_op_parallelism_threads=n_train_threads)
@@ -126,4 +123,4 @@ def train(records_file_name, state_file_name,
         coord.request_stop()
         coord.join(threads)
 
-        saver.save(s, state_file_name)
+        _tf.train.Saver().save(s, state_file_name)
