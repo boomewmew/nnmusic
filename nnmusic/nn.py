@@ -24,8 +24,8 @@ import nnmusic.io       as _io
 import tensorflow       as _tf
 
 N_HIDDEN    = 24
-N_UNROLL    = 100 # 10000
-BATCH_SIZE  = 100
+N_UNROLL    = 10
+BATCH_SIZE  = 10
 TIME_OFFSET = 1
 
 def train(records_file_name, state_file_name,
@@ -63,7 +63,6 @@ def train(records_file_name, state_file_name,
     
     batched_data = batch.sequences["audio_data"]
     
-    # New.
     weights = _tf.Variable(
         _tf.truncated_normal((N_HIDDEN, n_channels),
                              dtype=_types.tensor_amplitude),
