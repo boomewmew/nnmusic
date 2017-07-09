@@ -24,8 +24,10 @@ import importlib as _il
 import os        as _os
 import re        as _re
 
+_globals = globals()
+
 for _file_name in _os.listdir(__path__[0]):
     if _re.match("(?!__init__).*\.py", _file_name):
-        globals().update(
+        _globals.update(
             _il.import_module("nnmusic.{}".format(_file_name[:-3])).__dict__
         )
