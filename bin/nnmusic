@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-# nnmusic, a library for composing music using artificial neural networks.
+# nnmusic, a program for composing music using artificial neural networks.
 # Copyright (C) 2016  Boo Mew Mew
 
 # This program is free software: you can redistribute it and/or modify
@@ -20,103 +20,4 @@
 
 """Train and run nnmusic neural nets."""
 
-import argparse as ap
-import nnmusic  as nnm
 
-COLOR_DICT = {
-    s: nnm.ANSICode(t)
-    for s, t in (("convert", "green"), ("train", "red"), ("compose", "blue"))
-}
-
-def format_help(message, verbs):
-    """Append compatible verbs to help message.
-    
-    Keyword arguments:
-        message -- Help message.
-        verbs   -- Iterable of compatible verbs.
-    """
-    return "{} ({})".format(
-        message, ", ".join((nnm.wrap_ansi(s, COLOR_DICT[s]) for s in verbs))
-    )
-
-parser = ap.ArgumentParser(description="Each flag's description specifies in "
-                           "parentheses the verbs for which it is "
-                           "appropriate.  Flags not appropriate for the "
-                           "supplied verb will be ignored.",
-                           formatter_class=ap.ArgumentDefaultsHelpFormatter)
-
-parser.add_argument(
-    "verb", default=ap.SUPPRESS, choices=COLOR_DICT.keys(),
-    help="Action to perform."
-)
-
-parser.add_argument(
-    "-a", "--audio-dir", default="audio",
-    help=format_help("Directory containing audio files.", ("convert",))
-)
-
-parser.add_argument(
-    "-r", "--records-file", default="audio.tfrecords",
-    help=format_help("TFRecords file.", ("convert", "train"))
-)
-
-parser.add_argument(
-    "-s", "--sample-rate", default=nnm.DEFAULT_RATE, type=int,
-    help=format_help("Expected sample rate in Hz.", ("convert", "compose"))
-)
-
-parser.add_argument(
-    "-N", "--n-channels", default=nnm.DEFAULT_CHANNELS, type=int,
-    help=format_help("Expected number of audio channels.",
-                     ("convert", "train", "compose"))
-)
-
-parser.add_argument(
-    "-n", "--n-epochs", default=nnm.DEFAULT_EPOCHS, type=int,
-    help=format_help("Number of training epochs.", ("train",))
-)
-
-parser.add_argument(
-    "-b", "--n-batch-threads", default=nnm.DEFAULT_THREADS, type=int,
-    help=format_help("Number of threads for enqueueing audio data.",
-                     ("train",))
-)
-
-parser.add_argument(
-    "-t", "--n-train-threads", default=nnm.DEFAULT_THREADS, type=int,
-    help=format_help("Number of threads for training.", ("train",))
-)
-
-parser.add_argument(
-    "-S", "--state-file", default="state.ckpt",
-    help=format_help("File containing neural-net state.", ("train", "compose"))
-)
-
-parser.add_argument(
-    "-A", "--audio-file", default="audio.wav",
-    help=format_help("Audio file to write to.", ("compose",))
-)
-
-parser.add_argument(
-    "-d", "--duration", default=nnm.DEFAULT_RATE * 5 * 60, type=int,
-    help=format_help("Number of time steps in composition.", ("compose",))
-)
-
-options = parser.parse_args()
-
-if options.verb == "convert":
-
-    nnm.audio_to_records(options.audio_dir, options.records_file,
-                         options.sample_rate, options.n_channels)
-
-elif options.verb == "train":
-
-    nnm.train(options.records_file, options.state_file, options.n_epochs,
-              options.n_channels, options.n_batch_threads,
-              options.n_train_threads)
-
-else:
-
-    raise SystemExit(
-        nnm.wrap_err("Unrecognized verb, \"{}.\"".format(options.verb))
-    )
